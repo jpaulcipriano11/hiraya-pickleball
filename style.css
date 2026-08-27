@@ -1,0 +1,3954 @@
+:root {
+  --purple-dark: #35063E;
+  --purple-light: #7B2FA0;
+  --white: #ffffff;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-500: #6b7280;
+  --gray-700: #374151;
+  --gray-900: #111827;
+  --success: #10b981;
+  --danger: #ef4444;
+  --blue-booked: #dbeafe; /* Light blue for booked */
+  --blue-past: #f3f4f6;    /* Grey-blue for past */
+  --blue-today: #1e293b;   /* Dark blue for today header */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* --- White Gradient & Blurred Background Effect --- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background-color: #ffffff; /* Fallback */
+}
+
+/* 1. The Blurred Image Layer */
+body::before {
+  content: "";
+  position: fixed;
+  /* Extend slightly beyond the screen to prevent white blurry edges */
+  top: -20px; left: -20px; right: -20px; bottom: -20px; 
+  background-image: url('court-bg.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  filter: blur(1px); /* Adjust this number to make it more or less blurry */
+  z-index: -2; /* Pushes it to the very back */
+}
+
+/* 2. The White Gradient Overlay */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  /* A soft, semi-transparent white gradient */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.75) 100%);
+  z-index: -1; /* Sits right on top of the blurred image */
+}
+
+
+
+.container { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 20px 24px; 
+}
+
+/* Navbar */
+.navbar { background: var(--purple-dark); padding: 16px 0; }
+.nav-container { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+.logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.logo-icon { width: 40px; height: 40px; background: white; color: var(--purple-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
+.logo-title { color: white; font-weight: 800; font-size: 1.2rem; }
+.logo-subtitle { color: var(--purple-light); font-size: 0.7rem; letter-spacing: 0.1em; }
+.nav-links { display: flex; list-style: none; gap: 24px; }
+.nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-weight: 500; }
+.nav-links a.active { color: white; border-bottom: 2px solid var(--success); }
+.btn-admin { background: rgba(255,255,255,0.1); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 0.9rem; }
+
+/* Modern Floating Hero Card */
+.hero-section { 
+  padding: 20px 24px 0 24px; /* Padding only on sides/top */
+  text-align: center; 
+}
+
+.hero-content-wrapper {
+  background-image: linear-gradient(rgba(42, 4, 50, 0.7), rgba(42, 4, 50, 0.4)), url('images/hero-court.jpg');
+  background-size: cover;
+  background-position: center;
+  border-radius: 32px; /* Big rounded corners like kridx */
+  padding: 100px 40px;
+  color: white;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.hero-title { 
+  font-size: 4rem; 
+  font-weight: 800; 
+  margin-bottom: 16px; 
+  letter-spacing: -1px;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.hero-subtitle { 
+  color: rgba(255,255,255,0.9); 
+  font-size: 1.25rem; 
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Container */
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--gray-500); }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 3px; }
+.dot.open { background: white; border: 1px solid var(--gray-200); }
+.dot.booked { background: var(--blue-booked); border: 1px solid #bfdbfe; }
+.dot.past { background: var(--blue-past); border: 1px solid var(--gray-200); }
+
+/* Weekly Calendar Grid */
+.calendar-wrapper { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--gray-200); }
+.calendar-grid { 
+  display: grid; 
+  grid-template-columns: 100px repeat(7, 1fr); 
+  min-width: 800px; 
+  gap: 4px; /* Reduced gap to save space */
+}
+.calendar-cell { 
+  padding: 12px; 
+  border-radius: 12px; 
+  text-align: center; 
+  font-size: 0.85rem; 
+  background: var(--gray-50); /* Light gray base */
+  border: 1px solid var(--gray-100);
+}
+.calendar-cell:last-child { border-right: none; }
+.calendar-header { background: var(--gray-50); font-weight: 700; color: var(--gray-500); text-transform: uppercase; font-size: 0.75rem; padding: 16px 12px; }
+.calendar-header.today { background: var(--blue-today); color: white; }
+.calendar-header .day-name { display: block; margin-bottom: 4px; }
+.calendar-header .day-num { font-size: 1.2rem; }
+.time-label { 
+  font-weight: 700; 
+  color: var(--purple-dark); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  background: white; /* White background for time */
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.slot-cell { 
+  background: white; 
+  border: 1px solid var(--gray-100);
+}
+.slot-cell.booked { background: var(--blue-booked); }
+.slot-cell.past { background: var(--blue-past); }
+.court-status { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  white-space: nowrap; 
+  padding: 4px 4px; 
+  font-size: 0.7rem; 
+  overflow: hidden; /* Keeps long text inside the cell */
+  text-overflow: ellipsis; /* Adds "..." if it's still too long */
+  max-width: 100%; /* Forces it to stay inside the grid column */
+  box-sizing: border-box;
+}
+
+.court-name { 
+  font-weight: 600; 
+  color: var(--gray-700); 
+  flex-shrink: 1; /* Allows the name to shrink slightly if needed */
+  min-width: 0; 
+}
+
+.status-text { 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  font-size: 0.65rem; 
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 1; /* Allows the badge to shrink slightly */
+  min-width: 0;
+}
+
+.status-text.open { 
+  color: var(--gray-500); 
+  cursor: pointer; 
+}
+
+.status-text.open:hover {
+  color: var(--purple-dark);
+  font-weight: 800;
+}
+
+.status-text.booked { 
+  color: var(--purple-dark); 
+  cursor: not-allowed; 
+}
+
+/* Forms */
+/* --- Modern Booking Form Styles --- */
+
+/* Make the form card match the calendar card style */
+.form-card { 
+  background: white; 
+  padding: 40px; 
+  border-radius: 24px; /* Big rounded corners */
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15); 
+  margin-bottom: 40px; 
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.form-card h2 {
+  color: var(--purple-dark);
+  font-size: 1.8rem;
+  margin-bottom: 24px;
+  font-weight: 800;
+}
+
+.form-grid-2 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 24px; 
+  margin-bottom: 24px; 
+}
+
+.form-group label { 
+  display: block; 
+  font-weight: 700; 
+  margin-bottom: 8px; 
+  font-size: 0.9rem; 
+  color: var(--gray-700);
+}
+
+/* Modern Input Fields */
+input[type="text"], input[type="tel"], input[type="email"], select { 
+  width: 100%; 
+  padding: 14px 16px; 
+  border: 1px solid var(--gray-200); 
+  border-radius: 12px; 
+  font-size: 1rem; 
+  font-family: inherit; 
+  background: var(--gray-50); /* Light gray background */
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+/* Input Focus State */
+input:focus, select:focus { 
+  outline: none; 
+  border-color: var(--purple-dark); 
+  background: white;
+  box-shadow: 0 0 0 4px rgba(53, 6, 62, 0.1); /* Purple glow */
+}
+
+/* Selected Slot Display */
+.slot-display-wrapper input {
+  background: var(--gray-100);
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+/* --- Modern Add-on Cards --- */
+.addon-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 16px 20px;
+  background: var(--gray-50); /* Subtle gray background */
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02); /* Tiny shadow for depth */
+}
+
+.addon-card:hover {
+  border-color: var(--purple-light);
+  background: white;
+  transform: translateY(-2px);
+}
+
+.addon-info strong { 
+  display: block; 
+  margin-bottom: 4px; 
+  font-size: 1rem; 
+  color: var(--gray-900);
+}
+
+.addon-info span { 
+  font-size: 0.85rem; 
+  color: var(--gray-500); 
+}
+
+/* Quantity Buttons */
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid var(--gray-200);
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--purple-dark);
+  color: white;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.qty-btn:hover { background: var(--purple-light); }
+
+/* --- Modern Payment Options --- */
+.radio-card { 
+  display: flex; 
+  cursor: pointer; 
+}
+
+.radio-card .card-content { 
+  border: 1px solid var(--gray-200); 
+  border-radius: 12px; 
+  padding: 16px; 
+  width: 100%; 
+  transition: 0.2s; 
+  background: var(--gray-50);
+}
+
+.radio-card input:checked + .card-content { 
+  border-color: var(--purple-dark); 
+  background: white; 
+  box-shadow: 0 4px 12px rgba(53, 6, 62, 0.1);
+}
+
+.card-content strong { 
+  display: block; 
+  margin-bottom: 4px; 
+  color: var(--gray-900);
+}
+
+/* --- Modern Confirm Button --- */
+.btn-confirm { 
+  width: 100%; 
+  padding: 18px; 
+  background: var(--success); 
+  color: white; 
+  border: none; 
+  border-radius: 12px; 
+  font-weight: 700; 
+  font-size: 1.1rem; 
+  cursor: pointer; 
+  transition: all 0.2s;
+  margin-top: 10px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-confirm:hover { 
+  background: #059669; 
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* Responsive Form */
+@media (max-width: 768px) {
+  .form-grid-2, .addons-grid, .payment-options { 
+    grid-template-columns: 1fr; 
+  }
+  .form-card {
+    padding: 24px;
+  }
+}
+/* Addons & Payment */
+.addons-grid, .payment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.checkbox-card, .radio-card { display: flex; cursor: pointer; }
+.checkbox-card input, .radio-card input { display: none; }
+.card-content { border: 2px solid var(--gray-200); border-radius: 8px; padding: 16px; width: 100%; transition: 0.2s; }
+.checkbox-card input:checked + .card-content, .radio-card input:checked + .card-content { border-color: var(--purple-dark); background: var(--gray-50); }
+.card-content strong { display: block; margin-bottom: 4px; }
+.card-content span { font-size: 0.85rem; color: var(--gray-500); }
+
+.btn-confirm { width: 100%; padding: 16px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; }
+.btn-confirm:hover { background: #059669; }
+
+/* --- Modern Lookup Section --- */
+
+.lookup-section {
+  padding: 20px 24px;
+}
+
+.lookup-card { 
+  background: white; 
+  padding: 40px; 
+  border-radius: 24px; 
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15); 
+  margin-bottom: 40px;
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+}
+
+.lookup-card h2 {
+  color: var(--purple-dark);
+  font-size: 1.8rem;
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+
+.lookup-card > p {
+  color: var(--gray-500);
+  font-size: 1rem;
+  margin-bottom: 32px;
+}
+
+/* Modern Lookup Form */
+.lookup-form { 
+  display: flex; 
+  gap: 16px; 
+  margin-top: 20px; 
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lookup-form input { 
+  flex: 1; 
+  padding: 16px 20px;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  font-size: 1rem;
+  background: var(--gray-50);
+  transition: all 0.2s;
+}
+
+.lookup-form input:focus {
+  outline: none;
+  border-color: var(--purple-dark);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(53, 6, 62, 0.1);
+}
+
+/* Lookup Button */
+#lookupBtn {
+  padding: 16px 32px; 
+  background: var(--purple-dark); 
+  color: white; 
+  border: none; 
+  border-radius: 12px; 
+  font-weight: 700; 
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(53, 6, 62, 0.3);
+}
+
+#lookupBtn:hover {
+  background: var(--purple-light);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(53, 6, 62, 0.4);
+}
+
+/* Lookup Result Card */
+.lookup-result { 
+  margin-top: 32px; 
+  padding: 0;
+  border-radius: 16px;
+  border: none;
+  overflow: hidden;
+}
+
+/* Success Result */
+.lookup-result div[style*="background: white"] {
+  background: white !important;
+  border: 2px solid var(--success);
+  border-radius: 16px;
+  padding: 32px !important;
+}
+
+/* No Active Bookings */
+.lookup-result div[style*="background: #f3f4f6"] {
+  background: var(--gray-100) !important;
+  border-radius: 16px;
+  padding: 32px !important;
+  color: var(--gray-600);
+}
+
+/* No Booking Found */
+.lookup-result div[style*="background: #fee2e2"] {
+  background: #fee2e2 !important;
+  border-radius: 16px;
+  padding: 32px !important;
+  color: #991b1b;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lookup-form {
+    flex-direction: column;
+  }
+  
+  .lookup-card {
+    padding: 24px;
+  }
+}
+/* --- Contact Section (Now acts as the card) --- */
+.contact-section {
+  padding: 20px 24px 60px 24px;
+}
+
+.contact-section .container {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.contact-section h2 {
+  color: var(--purple-dark);
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-align: center;
+  border-bottom: 2px solid var(--gray-100);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.contact-intro {
+  text-align: center;
+  color: var(--gray-600);
+  margin-bottom: 32px;
+  font-size: 1.05rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .contact-section .container {
+    padding: 24px;
+    border-radius: 20px;
+  }
+  
+  .contact-section h2 {
+    font-size: 1.5rem;
+  }
+}
+
+.contact-card p {
+  color: var(--gray-500);
+  font-size: 1rem;
+  margin-bottom: 32px;
+}
+
+/* Modern Facebook Button */
+.btn-facebook { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 12px; 
+  background: #1877F2; /* Facebook Blue */
+  color: white; 
+  padding: 16px 32px; 
+  border-radius: 12px; 
+  text-decoration: none; 
+  font-weight: 700; 
+  font-size: 1.1rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+}
+
+.btn-facebook:hover { 
+  background: #145dbf; 
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(24, 119, 242, 0.4);
+}
+
+.btn-facebook svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .contact-card {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-grid-2, .addons-grid, .payment-options { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+}
+
+/* AM/PM Filter Buttons */
+.schedule-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filter-btn {
+  padding: 10px 24px;
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.filter-btn:hover {
+  border-color: var(--purple-light);
+  color: var(--purple-dark);
+}
+
+.filter-btn.active {
+  background: var(--purple-dark);
+  border-color: var(--purple-dark);
+  color: white;
+}
+
+.status-text.past { 
+  color: var(--gray-300); 
+  cursor: not-allowed; 
+}
+
+/* Clear Slot Button */
+.slot-display-wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.slot-display-wrapper input {
+  flex: 1;
+}
+
+.btn-clear-slot {
+  padding: 12px 20px;
+  background: var(--gray-200);
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.btn-clear-slot:hover {
+  background: var(--gray-300);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-clear-slot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add-on Quantity Controls */
+.addon-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+}
+
+.addon-info strong { display: block; margin-bottom: 4px; font-size: 0.95rem; }
+.addon-info span { font-size: 0.85rem; color: var(--gray-500); }
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--gray-50);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--purple-dark);
+  color: white;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.qty-btn:hover { background: var(--purple-light); }
+.qty-btn:disabled { background: var(--gray-300); cursor: not-allowed; }
+
+.qty-display { font-weight: 700; font-size: 1.1rem; min-width: 20px; text-align: center; }
+
+.addon-total-display {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--gray-50);
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 1rem;
+}
+
+.total-row .total-label {
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.total-row .total-value {
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.total-row.grand-total {
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 2px solid var(--gray-200);
+  font-size: 1.25rem;
+}
+
+.total-row.grand-total .total-label {
+  font-weight: 700;
+  color: var(--purple-dark);
+}
+
+.total-row.grand-total .total-value {
+  font-weight: 800;
+  color: var(--purple-dark);
+  font-size: 1.5rem;
+}
+
+/* GCash QR Code Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--gray-100);
+}
+
+.modal-header h3 {
+  color: var(--purple-dark);
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: var(--gray-500);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.modal-body {
+  margin-bottom: 24px;
+}
+
+.qr-code {
+  width: 100%;
+  max-width: 280px;
+  border: 3px solid var(--purple-dark);
+  border-radius: 12px;
+  padding: 12px;
+  background: white;
+  margin-bottom: 16px;
+}
+
+.qr-instruction {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+}
+
+.qr-details {
+  background: var(--gray-50);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.qr-details p {
+  margin: 8px 0;
+  color: var(--gray-700);
+}
+
+.qr-details strong {
+  color: var(--purple-dark);
+  font-size: 1.1rem;
+}
+
+.qr-reference {
+  background: var(--purple-light);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.qr-reference strong {
+  color: white;
+}
+
+.modal .btn-confirm {
+  margin-top: 16px;
+}
+
+/* Admin Dashboard Styles */
+.navbar {
+  background: var(--purple-dark);
+  padding: 16px 0;
+}
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-back {
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.dashboard-header {
+  padding-top: 120px !important;
+  padding-bottom: 20px;
+}
+
+.dashboard-header .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.dashboard-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--purple-dark);
+  margin: 0 0 8px 0;
+}
+
+.dashboard-header p {
+  color: var(--gray-500);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.dashboard-content {
+  padding: 40px 24px;
+  background: var(--gray-50);
+  min-height: calc(100vh - 300px);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 20px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  padding: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stat-icon.total { background: linear-gradient(135deg, #6b21a8, #4c1d95); }
+.stat-icon.today { background: linear-gradient(135deg, #059669, #047857); }
+.stat-icon.revenue { background: linear-gradient(135deg, #d97706, #b45309); }
+
+.stat-info { 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.stat-label { 
+  font-size: 0.85rem; 
+  color: var(--gray-500); 
+  font-weight: 600; 
+  margin-bottom: 4px; 
+}
+
+.stat-value { 
+  font-size: 1.5rem; 
+  font-weight: 800; 
+  color: var(--purple-dark); 
+}
+
+/* 3. Filters Card */
+.filters-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  padding: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  margin-bottom: 30px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.filters-card select, 
+.filters-card input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  background: white;
+  font-size: 0.9rem;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-actions button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+#applyFiltersBtn {
+  background: var(--purple-dark);
+  color: white;
+}
+
+#clearFiltersBtn {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+
+/* 4. Table Card */
+.table-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 24px !important;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08) !important;
+  margin-bottom: 40px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.table-header {
+  padding: 24px 30px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+}
+
+.table-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--purple-dark);
+  margin: 0;
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-badge.confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Action Buttons */
+.action-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: all 0.2s;
+  white-space: nowrap; /* Prevents button text from wrapping */
+}
+
+/* Force the Actions column to stay on one line */
+.bookings-table td:last-child {
+  white-space: nowrap;
+  width: 1%; 
+}
+
+.action-btn.confirm {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.action-btn.confirm:hover {
+  background: #86efac;
+}
+
+.action-btn.cancel {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.action-btn.cancel:hover {
+  background: #fca5a5;
+}
+
+.action-btn.view {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.action-btn.view:hover {
+  background: var(--gray-200);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--gray-500);
+}
+
+.empty-state svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .bookings-table {
+    min-width: 900px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filter-actions {
+    flex-direction: column;
+  }
+  
+  .table-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+}
+
+/* Booking Details Modal Styles */
+.details-modal {
+  max-width: 500px;
+  text-align: left;
+}
+
+.details-body {
+  padding: 0 8px;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h4 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.detail-label {
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.detail-value {
+  font-weight: 600;
+  color: var(--gray-900);
+  text-align: right;
+}
+
+.payment-section {
+  background: var(--gray-50);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.total-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px dashed var(--gray-300);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.total-amount {
+  color: var(--purple-dark);
+  font-size: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-footer button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.btn-confirm-action {
+  background: var(--success);
+  color: white;
+}
+.btn-confirm-action:hover { background: #059669; }
+
+.btn-cancel-action {
+  background: var(--danger);
+  color: white;
+}
+.btn-cancel-action:hover { background: #dc2626; }
+
+.btn-close-action {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+.btn-close-action:hover { background: var(--gray-300); }
+
+.hidden { display: none !important; }
+
+.export-buttons {
+  position: relative;
+}
+
+.btn-export {
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-export:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.export-options {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.export-option {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.export-option:hover {
+  background: var(--gray-50);
+}
+
+.export-option span {
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 2px;
+}
+
+.export-option small {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+}
+
+.export-options.hidden {
+  display: none;
+}
+
+#bookingDuration {
+  width: 100%;
+  padding: 14px 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+#bookingDuration:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: white;
+}
+
+/* Floating Side Navigation */
+.floating-nav {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.floating-nav.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.floating-nav-item {
+  width: 44px;
+  height: 44px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--purple-dark);
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.floating-nav-item:hover {
+  background: var(--purple-dark);
+  color: white;
+  transform: scale(1.1);
+}
+
+.floating-nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Multi-Hour Booking Indicators */
+.duration-badge {
+  background: var(--purple-dark); /* Solid purple background */
+  color: white !important; /* Force white text */
+  font-size: 0.75rem; /* Slightly larger */
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-weight: 700;
+  vertical-align: middle;
+  display: inline-block;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Subtle left border to visually connect multi-hour blocks */
+.court-status.multi-hour-block {
+  border-left: 4px solid var(--purple-dark);
+  background: rgba(53, 6, 62, 0.03);
+}
+
+/* Edit Modal Form Styles */
+#editBookingModal .form-group label {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+#editBookingModal input, 
+#editBookingModal select {
+  font-family: inherit;
+  background: white;
+}
+
+/* --- Step 1: Modernize the Calendar UI --- */
+.calendar-grid {
+    gap: 10px !important;
+    background: transparent !important;
+    border: none !important;
+}
+.calendar-day {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border: 1px solid #f0f0f0;
+    padding: 10px;
+}
+.court-status {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 6px;
+    border: none !important; /* Remove old borders */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.court-status .status-text.open {
+    color: #10B981; /* Modern Green */
+    font-weight: 700;
+}
+/* 1. Turn the entire container box purple when booked */
+.court-status:has(.status-text.booked) {
+  background-color: var(--purple-dark);
+}
+
+/* 2. Make both "Court 1" and "BOOKED" text white */
+.court-status:has(.status-text.booked) .court-name,
+.court-status:has(.status-text.booked) .status-text.booked {
+  color: white;
+}
+
+/* 3. Ensure the "BOOKED" text itself doesn't have a separate background */
+.status-text.booked {
+  background: transparent; 
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* --- Step 2: Modernize the Booking Form --- */
+
+/* The main form container */
+#bookingForm {
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two columns on desktop */
+    gap: 2rem;
+}
+
+/* Stack on mobile screens */
+@media (max-width: 768px) {
+    #bookingForm { grid-template-columns: 1fr; }
+}
+
+/* Form Inputs & Selects */
+#bookingForm input[type="text"],
+#bookingForm input[type="tel"],
+#bookingForm input[type="email"],
+#bookingForm input[type="number"],
+#bookingForm select {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    background: #f9fafb;
+}
+
+/* Focus state (when you click inside) */
+#bookingForm input:focus,
+#bookingForm select:focus {
+    outline: none;
+    border-color: #35063E; /* Your brand purple */
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(53, 6, 62, 0.1);
+}
+
+/* Labels */
+#bookingForm label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+/* Submit Button */
+#bookingForm button[type="submit"] {
+    width: 100%;
+    background: #35063E;
+    color: white;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 1rem;
+}
+
+#bookingForm button[type="submit"]:hover {
+    background: #4a0d56;
+}
+
+/* --- Step 3: Modern Top Banner (Hero Section) --- */
+.hero-section {
+    background: linear-gradient(135deg, #35063E 0%, #1a0220 100%); /* Deep Purple Gradient */
+    color: white;
+    padding: 6rem 2rem; /* Lots of breathing room */
+    text-align: center;
+    border-radius: 0 0 40px 40px; /* Modern curved bottom edge */
+    margin-bottom: 3rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(53, 6, 62, 0.15);
+}
+
+.hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    color: #ffffff;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 auto;
+    line-height: 1.6;
+    max-width: 600px;
+}
+
+/* --- Step 4: Modernize the Total Amount Box --- */
+.checkout-summary {
+    background: #35063E; /* Deep Purple Background */
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    box-shadow: 0 8px 20px rgba(53, 6, 62, 0.25); /* Nice deep shadow */
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.total-label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
+}
+
+.total-price {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #D4AF37; /* Gold accent for the money */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Add a subtle divider under section titles */
+.form-card h2, 
+.lookup-card h2, 
+.contact-card h2 {
+  border-bottom: 2px solid var(--gray-100);
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+}
+
+/* Modern Modal Styling */
+.modal-content {
+  border-radius: 24px; /* Match the main cards */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); /* Deep shadow */
+  border: none;
+}
+
+/* Give each section inside the modal a distinct gray box */
+.detail-section {
+  background: var(--gray-50);
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--gray-100);
+}
+
+.detail-section h4 {
+  margin-bottom: 16px;
+  color: var(--purple-dark);
+  border-bottom: none; /* Remove old border */
+  padding-bottom: 0;
+}
+
+/* Make the total amount in the modal stand out */
+.total-display {
+  background: var(--purple-dark);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-top: 16px;
+  border: none;
+}
+
+.total-display .total-amount {
+  color: white;
+  font-size: 1.5rem;
+}
+
+/* Review Modal Specific Styles */
+.review-modal {
+  max-width: 500px;
+}
+
+.review-grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 0.95rem;
+}
+
+.review-label {
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.review-value {
+  color: var(--gray-900);
+  font-weight: 600;
+  text-align: right;
+}
+
+.review-total-box {
+  background: var(--purple-dark);
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.review-total-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.review-total-price {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #D4AF37; /* Gold accent for the money */
+}
+
+/* Success Modal Specific Styles */
+.success-modal {
+  max-width: 450px;
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  background: #dcfce7;
+  color: var(--success);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px auto;
+}
+
+.success-modal h3 {
+  color: var(--purple-dark);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  color: var(--gray-700);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.success-message strong {
+  color: var(--purple-dark);
+  font-weight: 700;
+}
+
+.success-submessage {
+  color: var(--gray-500);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Make the Done button bigger in the success modal */
+.success-modal .btn-confirm-action {
+  padding: 18px 32px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  margin-top: 24px;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.success-modal .btn-confirm-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* ==========================================
+   COMPREHENSIVE MOBILE RESPONSIVENESS
+   ========================================== */
+
+@media (max-width: 768px) {
+  /* Hero Section */
+  .hero-content-wrapper {
+    padding: 60px 24px;
+    border-radius: 24px;
+  }
+  
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+  
+  /* Calendar */
+  .calendar-wrapper {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  .calendar-grid {
+    min-width: 700px; /* Allows horizontal scroll on mobile */
+  }
+  
+  /* Cards */
+  .form-card,
+  .lookup-card,
+  .contact-card {
+    padding: 24px;
+    border-radius: 20px;
+  }
+  
+  /* Form Elements */
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  input[type="text"],
+  input[type="tel"],
+  input[type="email"],
+  select {
+    padding: 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Buttons */
+  .btn-confirm,
+  #lookupBtn,
+  .btn-facebook {
+    padding: 16px 24px;
+    font-size: 1rem;
+  }
+  
+  /* Modals */
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+    padding: 24px;
+    border-radius: 20px;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.3rem;
+  }
+  
+  /* Review Modal */
+  .review-grid {
+    gap: 12px;
+  }
+  
+  .review-item {
+    font-size: 0.9rem;
+  }
+  
+  .review-total-price {
+    font-size: 1.5rem;
+  }
+  
+  /* Success Modal */
+  .success-modal {
+    padding: 32px 24px;
+  }
+  
+  .success-icon {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .success-modal h3 {
+    font-size: 1.3rem;
+  }
+  
+  .success-message {
+    font-size: 0.95rem;
+  }
+  
+  /* Floating Navigation */
+  .floating-nav {
+    right: 16px;
+  }
+  
+  .floating-nav-item {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Extra Small Devices (phones in portrait) */
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+  
+  .calendar-grid {
+    min-width: 650px;
+  }
+  
+  .form-card h2,
+  .lookup-card h2,
+  .contact-card h2 {
+    font-size: 1.5rem;
+  }
+  
+  .modal-content {
+    padding: 20px;
+  }
+  
+  .btn-confirm-action,
+  .btn-close-action {
+    padding: 14px 20px;
+    font-size: 0.95rem;
+  }
+}
+
+/* ==========================================
+   MOBILE SCHEDULE LIST VIEW
+   ========================================== */
+
+.mobile-schedule-list {
+  display: none; /* Hidden on desktop */
+  padding: 16px;
+}
+
+.mobile-day-group {
+  margin-bottom: 24px;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mobile-day-header {
+  background: var(--purple-dark);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-day-header.today {
+  background: var(--success);
+}
+
+.mobile-day-header .day-name {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-time-slot {
+  padding: 16px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+}
+
+.mobile-time-slot:last-child {
+  border-bottom: none;
+}
+
+.mobile-time-label {
+  font-weight: 700;
+  color: var(--purple-dark);
+  font-size: 0.95rem;
+  min-width: 80px;
+}
+
+.mobile-court-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.mobile-court-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.mobile-court-name {
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.mobile-status {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.mobile-status.open {
+  background: #dcfce7;
+  color: var(--success);
+  cursor: pointer;
+}
+
+.mobile-status.open:active {
+  background: var(--success);
+  color: white;
+}
+
+.mobile-status.booked {
+  background: var(--gray-200);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+
+/* Show mobile list on small screens, hide desktop grid */
+@media (max-width: 768px) {
+  .calendar-grid {
+    display: none;
+  }
+  
+  .mobile-schedule-list {
+    display: block;
+  }
+  
+  .schedule-filters {
+    justify-content: center;
+  }
+}
+
+/* Hide mobile list on desktop */
+@media (min-width: 769px) {
+  .mobile-schedule-list {
+    display: none !important;
+  }
+}
+
+/* --- Modern Schedule Section Card --- */
+.schedule-card {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  margin-bottom: 40px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.schedule-card h2 {
+  color: var(--purple-dark);
+  font-size: 1.8rem;
+  font-weight: 800;
+  border-bottom: 2px solid var(--gray-100);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+/* Adjust the calendar wrapper to sit seamlessly inside the card */
+.calendar-wrapper {
+  background: transparent; /* Remove white bg since the card is already white */
+  box-shadow: none;        /* Remove shadow */
+  border: none;            /* Remove border */
+  padding: 0;
+  overflow: visible;       /* Let the grid breathe */
+}
+
+/* Mobile responsiveness for the schedule card */
+@media (max-width: 768px) {
+  .schedule-card {
+    padding: 24px;
+    border-radius: 20px;
+  }
+}
+
+/* ==========================================
+   PENDING SLOTS (Yellow/Amber Style)
+   ========================================== */
+
+/* 1. Turn the entire container box yellow/amber when pending */
+.court-status:has(.status-text.pending) {
+  background-color: #d97706; /* Professional Amber/Yellow */
+}
+
+/* 2. Make both "Court 1" and "PENDING" text white */
+.court-status:has(.status-text.pending) .court-name,
+.court-status:has(.status-text.pending) .status-text.pending {
+  color: white;
+}
+
+/* 3. Ensure the "PENDING" text itself doesn't have a separate background */
+.status-text.pending {
+  background: transparent;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* Mobile Pending Status (Matching the same yellow style) */
+.mobile-status.pending {
+  background: #d97706;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* --- Responsive Map Container --- */
+.map-container {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden; /* Keeps the rounded corners clean */
+  margin-bottom: 32px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border: 1px solid var(--gray-200);
+}
+
+.map-container iframe {
+  display: block;
+  width: 100%;
+  height: 350px; /* Default height for desktop */
+}
+
+/* Adjust map height on mobile */
+@media (max-width: 768px) {
+  .map-container iframe {
+    height: 250px; 
+  }
+}
+
+/* Center the Facebook button if it's the only thing left */
+.contact-actions {
+  display: flex;
+  justify-content: center;
+}
+
+/* --- Admin Login Overlay Styles --- */
+.admin-login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #2a0432 0%, #1a0220 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Ensures it sits on top of everything */
+}
+
+.admin-login-card {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.admin-login-card h2 {
+  color: var(--purple-dark);
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.admin-login-card p {
+  color: var(--gray-500);
+  margin-bottom: 24px;
+}
+
+.admin-login-card .form-group {
+  text-align: left;
+  margin-bottom: 16px;
+}
+
+.admin-login-card label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.admin-login-card input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--gray-50);
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.admin-login-card input:focus {
+  outline: none;
+  border-color: var(--purple-dark);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(53, 6, 62, 0.1);
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 16px;
+  background: #fee2e2;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* --- Contact Section Improvements --- */
+.contact-intro {
+  text-align: center;
+  color: var(--gray-600);
+  margin-bottom: 32px;
+  font-size: 1.05rem;
+}
+
+/* Coaching Notice - Better Aligned */
+.coaching-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+  text-align: left;
+}
+
+.coaching-icon {
+  flex-shrink: 0;
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.coaching-content h3 {
+  color: #92400e;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.coaching-content p {
+  color: #78350f;
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Address Section */
+.address-section {
+  margin-bottom: 24px;
+}
+
+.address-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--gray-50);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  font-size: 1rem;
+  color: var(--gray-700);
+  font-weight: 500;
+}
+
+.address-item svg {
+  color: var(--purple-dark);
+  flex-shrink: 0;
+}
+
+/* Map Container */
+.map-container {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border: 1px solid var(--gray-200);
+}
+
+.map-container iframe {
+  display: block;
+  width: 100%;
+  height: 350px;
+}
+
+/* Contact Options */
+.contact-options {
+  display: flex;
+  justify-content: center;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .coaching-notice {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+  
+  .coaching-icon {
+    padding: 6px;
+  }
+  
+  .coaching-content h3 {
+    font-size: 1.05rem;
+  }
+  
+  .address-item {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+  }
+  
+  .map-container iframe {
+    height: 250px;
+  }
+  
+  .contact-options {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+/* --- Compact Admin Settings Styles --- */
+.settings-header {
+  margin-bottom: 24px;
+}
+
+.settings-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--purple-dark);
+  margin-bottom: 8px;
+}
+
+.settings-header p {
+  color: var(--gray-500);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Center the single card */
+.single-card {
+  max-width: 600px; /* Prevents it from stretching too wide */
+  margin: 0 auto 24px auto; /* Centers it horizontally */
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid var(--gray-100);
+}
+
+.single-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.single-card .desc {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.single-card select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--gray-50);
+  cursor: pointer;
+}
+
+/* Keep the court selects side-by-side */
+.court-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.select-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+/* Centered Save Button */
+.save-settings-btn {
+  max-width: 250px; /* Prevents it from stretching full width */
+  margin: 0 auto;   /* Centers it */
+  display: block;
+  padding: 14px 24px;
+}
+
+.settings-message {
+  text-align: center;
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+.settings-message.success {
+  color: var(--success);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr; /* Stack cards on mobile */
+  }
+  
+  .court-selects {
+    grid-template-columns: 1fr; /* Stack courts on mobile */
+  }
+  
+  .save-settings-btn {
+    max-width: 100%;
+  }
+}
+
+/* ==========================================
+   MAINTENANCE SLOTS (Grey Style)
+   ========================================== */
+
+/* 1. Turn the entire container box grey when under maintenance */
+.court-status:has(.status-text.maintenance) {
+  background-color: var(--gray-500); /* Solid grey background */
+}
+
+/* 2. Make both "Court 1" and "MAINTENANCE" text white */
+.court-status:has(.status-text.maintenance) .court-name,
+.court-status:has(.status-text.maintenance) .status-text.maintenance {
+  color: white;
+}
+
+/* 3. Ensure the text doesn't have its own separate background */
+.status-text.maintenance {
+  background: transparent;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   TOURNAMENT SLOTS (Orange/Amber Style)
+   ========================================== */
+
+/* Desktop Calendar */
+.court-status:has(.status-text.tournament) {
+  background-color: #f59e0b; /* Amber/Orange color */
+}
+
+.court-status:has(.status-text.tournament) .court-name,
+.court-status:has(.status-text.tournament) .status-text.tournament {
+  color: white;
+}
+
+.status-text.tournament {
+  background: transparent;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* Mobile List */
+.mobile-status.tournament {
+  background: #f59e0b;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   CLOSED / TOURNAMENT SLOTS (Red Style)
+   ========================================== */
+
+/* 1. Turn the entire container box red when closed */
+.court-status:has(.status-text.closed) {
+  background-color: var(--danger); /* Solid red background */
+}
+
+/* 2. Make both "Court 1" and "CLOSED" text white */
+.court-status:has(.status-text.closed) .court-name,
+.court-status:has(.status-text.closed) .status-text.closed {
+  color: white;
+}
+
+.status-text.closed {
+  background: transparent;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   MOBILE VERSIONS
+   ========================================== */
+
+.mobile-status.maintenance {
+  background: var(--gray-500);
+  color: white;
+  cursor: not-allowed;
+}
+
+.mobile-status.closed {
+  background: var(--danger);
+  color: white;
+  cursor: not-allowed;
+}
+
+/* 5. Settings Section - Glassmorphism */
+#settings-section {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 40px 20px !important;
+  margin-top: 0 !important;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.settings-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.settings-header h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--purple-dark);
+  margin: 0 0 8px 0;
+}
+
+.settings-header p {
+  color: var(--gray-500);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.settings-card.single-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  padding: 30px !important;
+  margin-bottom: 24px;
+}
+
+.settings-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--purple-dark);
+  margin: 0 0 8px 0;
+}
+
+.settings-card .desc {
+  color: var(--gray-500);
+  font-size: 0.9rem;
+  margin: 0 0 20px 0;
+}
+
+.settings-card select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  background: white;
+  font-size: 0.95rem;
+}
+
+.court-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.select-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+}
+
+.save-settings-btn {
+  max-width: 250px;
+  margin: 24px auto 0 auto;
+  display: block;
+  padding: 14px 24px;
+  background: var(--purple-dark);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-settings-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(42, 4, 50, 0.3);
+}
+
+/* 6. Closure Form */
+.closure-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.closure-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.closure-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+.closure-form input,
+.closure-form select {
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.closure-form button {
+  padding: 10px 20px;
+  background: var(--purple-dark);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.closures-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+.closure-tag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-200);
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.closure-tag.maintenance { border-left: 4px solid var(--gray-500); }
+.closure-tag.tournament { border-left: 4px solid #f59e0b; }
+
+.closure-tag strong { color: var(--gray-900); }
+.closure-tag span { color: var(--gray-500); }
+
+.closure-tag button {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 0 4px;
+}
+
+
+/* 7. Mobile Responsiveness */
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding-top: 100px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .court-selects {
+    grid-template-columns: 1fr;
+  }
+  
+  .closure-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Redesigned Hero Section --- */
+.hero-redesigned {
+  padding: 40px 20px;
+  background: transparent;
+}
+
+.hero-card {
+  background: var(--purple-dark); /* Your brand purple */
+  border-radius: 30px;
+  padding: 50px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(42, 4, 50, 0.2);
+}
+
+.hero-top-bar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 50px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.hero-links span {
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+.hero-brand {
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 50px;
+  align-items: center;
+}
+
+.hero-badge {
+  background: rgba(255,255,255,0.1);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1.1;
+  margin: 20px 0;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+}
+
+.text-accent {
+  color: var(--success); /* Uses your green for the accent */
+}
+
+.hero-desc {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  opacity: 0.9;
+  max-width: 90%;
+  margin-bottom: 30px;
+}
+
+.hero-btns {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.btn-hero-main {
+  background: white;
+  color: var(--purple-dark);
+  padding: 16px 32px;
+  border-radius: 30px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.btn-hero-main:hover { 
+  transform: scale(1.05); 
+}
+
+.btn-hero-outline {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255,255,255,0.3);
+  padding: 16px 32px;
+  border-radius: 30px;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.btn-hero-outline:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: white;
+}
+
+/* Image Frame & Decoration */
+.hero-visual {
+  position: relative;
+}
+
+.player-image-frame {
+  background: white;
+  padding: 12px;
+  border-radius: 20px;
+  transform: rotate(2deg);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 2;
+}
+
+.player-image-frame img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+.diagonal-line {
+  position: absolute;
+  bottom: -30px;
+  right: 20%;
+  width: 300px;
+  height: 15px;
+  background: var(--success); /* Green diagonal line */
+  transform: rotate(-45deg);
+  opacity: 0.8;
+  z-index: 1;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .hero-card { padding: 30px 20px; }
+  .hero-grid { grid-template-columns: 1fr; text-align: center; }
+  .hero-title { font-size: 2.5rem; }
+  .hero-desc { margin: 0 auto 30px auto; }
+  .hero-btns { justify-content: center; flex-wrap: wrap; }
+  .player-image-frame { transform: rotate(0); margin-top: 30px; }
+  .diagonal-line { display: none; }
+}
+
+/* ==========================================
+   AMENITIES & FEATURES STRIP
+   ========================================== */
+.amenities-section {
+  background: transparent !important; /* Removes the solid white band */
+  padding: 50px 0;
+  border-top: none !important; /* Removes old borders */
+  border-bottom: none !important;
+}
+
+.amenities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.amenity-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  
+  /* --- NEW: Soft Floating Shadow --- */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+/* --- NEW: Hover Lift Effect --- */
+.amenity-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.15), 0 10px 15px -8px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+}
+
+.amenity-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple-light) 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.amenity-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.amenity-text strong {
+  color: var(--purple-dark);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.amenity-text span {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .amenities-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .amenity-item {
+    padding: 16px;
+  }
+  
+  .amenity-icon {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .amenity-text strong {
+    font-size: 0.9rem;
+  }
+  
+  .amenity-text span {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .amenities-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================
+   PHASE 4: UI POLISH & MICRO-INTERACTIONS
+   ========================================== */
+
+/* 1. Buttery Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 2. Interactive Calendar Slots (Hover Effects) */
+.status-text.open {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.status-text.open:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(42, 4, 50, 0.15);
+  background: #f3e8ff !important; /* Light purple tint on hover */
+}
+
+/* 3. Polished Loading Animation */
+.loading-text {
+  text-align: center;
+  color: var(--gray-500);
+  font-weight: 600;
+  font-size: 0.95rem;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+/* 4. Premium "Digital Ticket" for My Booking Lookup */
+#lookupResult {
+  margin-top: 24px;
+  background: white;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  border: 1px solid var(--gray-100);
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Make the inside of the ticket look like a pass */
+#lookupResult > div {
+  padding: 24px;
+  border-bottom: 2px dashed var(--gray-200);
+}
+
+#lookupResult > div:last-child {
+  border-bottom: none;
+}
+
+/* Style the text inside the ticket */
+#lookupResult strong {
+  color: var(--purple-dark);
+  font-size: 1.1rem;
+}
+
+#lookupResult p, #lookupResult span {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Add a nice "Success" header if the JS generates one */
+#lookupResult h3, #lookupResult h4 {
+  color: var(--purple-dark);
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+/* 5. Subtle Slide-Up Animation for Modals & Results */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply slide-up to modals when they open */
+.modal:not(.hidden) .modal-content {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* --- Premium Floating Shadows for Dark Background --- */
+.schedule-card, 
+.form-card, 
+.lookup-card, 
+.contact-card, 
+.sidebar-card {
+  /* Deeper, softer shadow + a tiny crisp border for definition */
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5), 
+    0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  border: none !important; /* Removes any old gray borders that might clash */
+}
+
+/* Add a subtle hover lift to the cards for extra interactivity */
+.schedule-card:hover, 
+.form-card:hover, 
+.lookup-card:hover, 
+.contact-card:hover {
+  transform: translateY(-4px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 
+    0 35px 60px -15px rgba(0, 0, 0, 0.6), 
+    0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ==========================================
+   MODERN FLOATING NAVBAR
+   ========================================== */
+.modern-navbar {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  max-width: 1000px;
+  z-index: 1000;
+  
+  /* Frosted Glass Effect */
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  
+  /* Pill Shape & Border */
+  border-radius: 50px;
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+/* Logo Styles */
+.modern-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+/* --- Custom Logo Image Styles --- */
+.logo-img {
+  height: 36px; /* Adjust this to make your logo bigger or smaller */
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--purple-dark);
+  letter-spacing: 1px;
+}
+
+/* Navigation Links */
+.modern-nav-links {
+  display: flex;
+  list-style: none;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--gray-600);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--purple-dark);
+  background: rgba(42, 4, 50, 0.05);
+}
+
+.nav-link.active {
+  color: var(--purple-dark);
+  background: rgba(42, 4, 50, 0.08);
+}
+
+/* Admin Button */
+.btn-admin-modern {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--gray-500);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--gray-200);
+  transition: all 0.2s ease;
+}
+
+.btn-admin-modern:hover {
+  color: var(--purple-dark);
+  border-color: var(--purple-dark);
+  background: white;
+}
+
+/* Push the Hero section down so the floating nav doesn't cover it */
+.hero-redesigned {
+  padding-top: 120px; /* Adjusts space for the floating nav */
+  padding-bottom: 40px;
+}
+
+/* --- Fix the "Blocking" Issue --- */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 120px; /* Pushes the scroll target down so the navbar doesn't cover titles */
+}
+
+/* --- Modern Floating Navbar Layout --- */
+.modern-navbar {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  max-width: 1000px;
+  z-index: 1000;
+  
+  /* Frosted Glass Effect */
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  
+  /* Pill Shape & Border */
+  border-radius: 50px;
+  padding: 10px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  
+  transition: all 0.3s ease;
+}
+
+/* 3-Column Grid for Perfect Centering */
+.nav-container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* Left, Center, Right */
+  align-items: center;
+  width: 100%;
+}
+
+/* Left: Logo */
+.modern-logo {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.logo-img {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.logo-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--purple-dark);
+  letter-spacing: 1px;
+}
+
+/* Middle: Links & Admin */
+.nav-center-group {
+  justify-self: center; /* Forces this group to the exact center of the pill */
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.modern-nav-links {
+  display: flex;
+  list-style: none;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--gray-600);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--purple-dark);
+  background: rgba(42, 4, 50, 0.05);
+}
+
+.nav-link.active {
+  color: var(--purple-dark);
+  background: rgba(42, 4, 50, 0.08);
+}
+
+.btn-admin-modern {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--gray-500);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--gray-200);
+  transition: all 0.2s ease;
+}
+
+.btn-admin-modern:hover {
+  color: var(--purple-dark);
+  border-color: var(--purple-dark);
+  background: white;
+}
+
+/* Right: Empty Spacer */
+.nav-spacer {
+  justify-self: end;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .modern-navbar {
+    width: 95%;
+    padding: 10px 16px;
+    top: 16px;
+  }
+  
+  /* On mobile, hide the text links and just show Logo + Admin */
+  .modern-nav-links {
+    display: none; 
+  }
+  
+  .nav-center-group {
+    gap: 12px;
+  }
+  
+  .logo-name {
+    font-size: 0.9rem;
+  }
+}
+
+/* ==========================================
+   MODERN ADMIN DASHBOARD REDESIGN
+   ========================================== */
+
+/* 1. Modern Stats Cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  padding: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.stat-icon.total { background: linear-gradient(135deg, #6b21a8, #4c1d95); }
+.stat-icon.today { background: linear-gradient(135deg, #059669, #047857); }
+.stat-icon.revenue { background: linear-gradient(135deg, #d97706, #b45309); }
+
+.stat-info { display: flex; flex-direction: column; }
+.stat-label { font-size: 0.85rem; color: var(--gray-500); font-weight: 600; margin-bottom: 4px; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: var(--purple-dark); }
+
+/* 2. Modern Filters Card */
+.filters-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  padding: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+  margin-bottom: 30px;
+}
+
+.filters-card select, .filters-card input {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  background: white;
+}
+
+/* 3. Sleek Data Table */
+.table-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 24px !important;
+  overflow: hidden; /* Keeps corners rounded */
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05) !important;
+  margin-bottom: 40px;
+}
+
+.table-header {
+  padding: 24px 30px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+}
+
+.table-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--purple-dark);
+  margin: 0;
+}
+
+.bookings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bookings-table th {
+  background: #f8fafc;
+  color: var(--gray-500);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 20px;
+  text-align: left;
+}
+
+.bookings-table td {
+  padding: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--gray-700);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+.bookings-table tr:last-child td { border-bottom: none; }
+.bookings-table tbody tr { transition: background 0.2s; }
+.bookings-table tbody tr:hover { background: #f8fafc; }
+
+/* Modern Status Badges */
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.status-badge.confirmed { background: #dcfce7; color: #166534; }
+.status-badge.pending { background: #fef3c7; color: #92400e; }
+.status-badge.cancelled { background: #fee2e2; color: #991b1b; }
+
+/* Modern Action Buttons */
+.action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: all 0.2s;
+}
+
+.action-btn.confirm { background: #dcfce7; color: #166534; }
+.action-btn.confirm:hover { background: #bbf7d0; }
+.action-btn.cancel { background: #fee2e2; color: #991b1b; }
+.action-btn.cancel:hover { background: #fecaca; }
+.action-btn.view { background: #e0e7ff; color: #3730a3; }
+.action-btn.view:hover { background: #c7d2fe; }
+
+/* 4. Modern Settings Cards */
+#settings-section {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+}
+
+.settings-card.single-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+  padding: 30px !important;
+}
+
+.settings-card select {
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  background: white;
+}
+
+/* 5. Modern Logout Button */
+.btn-logout-modern {
+  background: #fee2e2;
+  color: #991b1b;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout-modern:hover {
+  background: #fecaca;
+  transform: translateY(-2px);
+}
+
+/* 6. Modern Login Overlay */
+.admin-login-overlay {
+  background: rgba(26, 2, 32, 0.6) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.admin-login-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px);
+  border-radius: 24px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   FIX: REVEAL BACKGROUND IN ADMIN DASHBOARD
+   ========================================== */
+
+/* 1. Remove solid white backgrounds from main wrappers */
+.dashboard-content, 
+.dashboard-content .container, 
+.table-wrapper,
+.dashboard-header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* 2. Make the Table Header transparent */
+.table-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 3. Turn the Cards into True Frosted Glass (Lower Opacity) */
+.stat-card,
+.filters-card,
+.table-card,
+.settings-card.single-card {
+  /* Changed from 0.9/0.95 to 0.75 so the background shows through */
+  background: rgba(255, 255, 255, 0.75) !important; 
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 4. Make the table rows slightly transparent too */
+.bookings-table th {
+  background: rgba(248, 250, 252, 0.5) !important;
+}
+
+.bookings-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.6) !important;
+}
+
+/* ==========================================
+   HARD SHADOWS FOR ADMIN CARDS
+   ========================================== */
+
+.stat-card,
+.filters-card,
+.table-card,
+.settings-card.single-card {
+  /* Hard shadow: X-offset, Y-offset, 0px blur, solid dark purple */
+  box-shadow: 8px 8px 0px rgba(42, 4, 50, 0.85) !important; 
+  border: 2px solid rgba(42, 4, 50, 0.1) !important; /* Crisp edge */
+  transition: all 0.15s ease !important; /* Fast, snappy transition */
+}
+
+/* Tactile "Press" Hover Effect */
+.stat-card:hover,
+.filters-card:hover,
+.table-card:hover,
+.settings-card.single-card:hover {
+  transform: translate(4px, 4px) !important; /* Pushes the card down slightly */
+  box-shadow: 4px 4px 0px rgba(42, 4, 50, 0.85) !important; /* Shadow shrinks */
+}
+
+/* ==========================================
+   HERO IMAGE FAN STACK ANIMATION
+   ========================================== */
+
+.image-stack {
+  position: relative;
+  width: 320px;  /* Width of the cards */
+  height: 400px; /* Height of the cards */
+  margin: 0 auto;
+  cursor: pointer;
+  /* Keep the diagonal line behind the stack */
+  z-index: 2; 
+}
+
+.stack-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px; /* Slightly tighter corners look more like photo cards */
+  border: 8px solid white; /* Thicker border for that premium polaroid feel */
+  
+  /* --- Realistic Stacked Shadows --- */
+  box-shadow: 
+    inset 0 0 0 1px rgba(0,0,0,0.05), /* Tiny inner edge for card thickness */
+    0 25px 50px rgba(0,0,0,0.25),     /* Deep, soft drop shadow */
+    0 5px 15px rgba(0,0,0,0.15);      /* Close contact shadow right under the card */
+  
+  /* The magic transition for the scatter effect */
+  transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1); 
+  transform-origin: bottom center; 
+}
+
+/* --- DEFAULT STATE: The Messy Stack --- */
+.img-1 { transform: rotate(-6deg) translate(-15px, 10px); z-index: 1; }
+.img-2 { transform: rotate(4deg) translate(10px, -5px); z-index: 2; }
+.img-3 { transform: rotate(-3deg) translate(15px, 5px); z-index: 3; }
+.img-4 { transform: rotate(7deg) translate(-10px, -10px); z-index: 4; }
+.img-5 { transform: rotate(0deg); z-index: 5; } /* Top card is straight */
+
+/* --- HOVER STATE: The Big Scatter Effect --- */
+.image-stack:hover .img-1 { 
+  transform: translate(-110px, -70px) rotate(-25deg); 
+}
+.image-stack:hover .img-2 { 
+  transform: translate(120px, -80px) rotate(20deg); 
+}
+.image-stack:hover .img-3 { 
+  transform: translate(-130px, 60px) rotate(-15deg); 
+}
+.image-stack:hover .img-4 { 
+  transform: translate(110px, 90px) rotate(30deg); 
+}
+.image-stack:hover .img-5 { 
+  transform: translate(0px, -120px) rotate(10deg); 
+}
+
+/* Mobile Responsiveness: Disable fan on small screens to save space */
+@media (max-width: 768px) {
+  .image-stack {
+    width: 260px;
+    height: 340px;
+  }
+  /* Keep them stacked on mobile, no fan */
+  .image-stack:hover .stack-img {
+    transform: rotate(0deg) translate(0, 0);
+  }
+}
+
+/* --- Weekly Schedule Rates Badge --- */
+.schedule-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.rates-badge {
+  background: var(--gray-50);
+  padding: 10px 20px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--gray-200);
+}
+
+.rates-badge strong {
+  color: var(--purple-dark);
+}
+
+.rates-badge .divider {
+  color: var(--gray-300);
+}
+
+/* Make it stack nicely on mobile */
+@media (max-width: 768px) {
+  .schedule-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .rates-badge {
+    flex-wrap: wrap;
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+  }
+}
+
+/* --- Dynamic Rate Display --- */
+.rates-badge {
+  background: var(--gray-50);
+  padding: 10px 20px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--gray-200);
+}
+
+.rate-display {
+  transition: all 0.3s ease;
+  opacity: 0.5;
+}
+
+.rate-display.active {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.rate-display strong {
+  color: var(--purple-dark);
+}
+
+.rate-divider-vertical {
+  width: 1px;
+  height: 16px;
+  background: var(--gray-300);
+}
+
+.rate-note {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+/* Highlight the active filter button */
+.filter-btn.active[data-filter="am"] {
+  background: var(--purple-dark);
+  color: white;
+}
+
+.filter-btn.active[data-filter="pm"] {
+  background: var(--purple-dark);
+  color: white;
+}
+
+/* --- Modern Toast Notifications --- */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Allows clicking through the container */
+}
+
+.toast {
+    background: white;
+    padding: 16px 20px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-left: 5px solid #10B981; /* Green for success */
+    min-width: 300px;
+    pointer-events: auto;
+    animation: slideIn 0.3s ease forwards;
+    font-family: 'Inter', sans-serif;
+}
+
+.toast.error { border-left-color: #EF4444; } /* Red for errors */
+
+.toast-icon { font-size: 1.2rem; }
+.toast-message { flex: 1; font-size: 0.95rem; color: #1F2937; font-weight: 500; }
+.toast-close { cursor: pointer; color: #9CA3AF; font-size: 1.2rem; transition: color 0.2s; }
+.toast-close:hover { color: #1F2937; }
+
+@keyframes slideIn { 
+    from { transform: translateX(100%); opacity: 0; } 
+    to { transform: translateX(0); opacity: 1; } 
+}
+@keyframes fadeOut { 
+    from { opacity: 1; } 
+    to { opacity: 0; } 
+}
+
+/* --- Floating Side Navigation --- */
+.floating-nav {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  /* Start slightly to the right so it can slide in */
+  transform: translateY(-50%) translateX(30px); 
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+  
+  /* Smooth fade and slide transition */
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  
+  /* Hidden state */
+  opacity: 0;
+  pointer-events: none; /* Prevents clicking when invisible */
+}
+
+/* Visible state */
+.floating-nav.visible {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0); /* Slides into final position */
+  pointer-events: auto; /* Allows clicking */
+}
+
+/* ... Keep the rest of your .nav-dot styles exactly as they are ... */
+
+.nav-dot {
+  width: 45px;
+  height: 45px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #35063E; /* Your brand purple */
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.nav-dot:hover {
+  background: #35063E;
+  color: #D4AF37; /* Gold on hover */
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(53, 6, 62, 0.3);
+}
+
+/* Specific style for the Back to Top button */
+.nav-dot.back-to-top {
+  background: #D4AF37; /* Gold background */
+  color: #35063E;
+  margin-top: 10px; /* Slight gap to separate it */
+}
+
+.nav-dot.back-to-top:hover {
+  background: #b5952f;
+  color: white;
+}
+
+/* Style for past time slots */
+.status-text.past, .mobile-status.past {
+  color: #9CA3AF !important; /* Light gray */
+  cursor: not-allowed !important;
+  font-weight: 500 !important;
+}
