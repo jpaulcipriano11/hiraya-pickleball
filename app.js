@@ -1598,7 +1598,7 @@ async function notifyAdminOfNewBooking(bookingData) {
     payment_method: payment.toUpperCase(),
     total_amount: total,
     status: status,
-    to_email: 'jpaulcipriano@gmail.com', // <-- Your admin email
+    to_email: 'vincintjude7@gmail.com', // <-- Your admin email
     to_name: 'Hiraya Admin'
   };
 
