@@ -204,20 +204,37 @@
           <button class="filter-btn active" data-filter="am">AM</button>
           <button class="filter-btn" data-filter="pm">PM</button>
         </div>
+
+        
         
         <div class="calendar-wrapper">
-          <div class="calendar-grid" id="calendarGrid">
-            <!-- JS will populate this -->
-            <p class="loading-text">Loading schedule...</p>
-          </div>
-          
-          <!-- Mobile List View -->
-          <div class="mobile-schedule-list" id="mobileScheduleList">
-           
-          </div>
-        </div>
-      </div>
-      <!-- END CARD WRAPPER -->
+
+  <!-- WEEK NAVIGATION -->
+  <div class="calendar-week-navigation" id="calendarWeekNavigation">
+    <button type="button" class="week-nav-btn" id="prevWeekBtn">
+      ← Previous Week
+    </button>
+
+    <div class="week-current-label" id="weekCurrentLabel">
+      This Week
+    </div>
+
+    <button type="button" class="week-nav-btn" id="nextWeekBtn">
+      Next Week →
+    </button>
+  </div>
+
+  <div class="calendar-grid" id="calendarGrid">
+    <!-- JS will populate this -->
+    <p class="loading-text">Loading schedule...</p>
+  </div>
+  
+  <!-- Mobile List View -->
+  <div class="mobile-schedule-list" id="mobileScheduleList">
+   
+  </div>
+
+</div>
 
     </div>
   </section>

@@ -126,9 +126,15 @@ body::after {
 .calendar-wrapper { overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--gray-200); }
 .calendar-grid { 
   display: grid; 
-  grid-template-columns: 100px repeat(7, 1fr); 
-  min-width: 800px; 
-  gap: 4px; /* Reduced gap to save space */
+  grid-template-columns: 100px repeat(7, minmax(130px, 1fr)); 
+  min-width: 1050px; 
+  gap: 4px;
+}
+.status-text.open-play {
+    color: var(--gray-500);
+    background: var(--gray-100);
+    cursor: not-allowed;
+    pointer-events: none;
 }
 .calendar-cell { 
   padding: 12px; 
@@ -159,17 +165,46 @@ body::after {
 }
 .slot-cell.booked { background: var(--blue-booked); }
 .slot-cell.past { background: var(--blue-past); }
-.court-status { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center;
-  white-space: nowrap; 
-  padding: 4px 4px; 
-  font-size: 0.7rem; 
-  overflow: hidden; /* Keeps long text inside the cell */
-  text-overflow: ellipsis; /* Adds "..." if it's still too long */
-  max-width: 100%; /* Forces it to stay inside the grid column */
-  box-sizing: border-box;
+.court-status {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border: none !important;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+
+    overflow: hidden;
+}
+
+.court-status .court-name {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.court-status .status-text {
+    flex: 0 0 auto;
+    white-space: nowrap;
+
+    font-size: 0.65rem;
+    padding: 3px 5px;
+    border-radius: 4px;
+}
+
+.court-status .status-text.open {
+    color: #10B981;
+    font-weight: 700;
 }
 
 .court-name { 
@@ -1503,16 +1538,20 @@ input:focus, select:focus {
 .court-status {
     background: #f9fafb;
     border-radius: 8px;
-    padding: 8px;
+    padding: 6px 8px;
     margin-bottom: 6px;
-    border: none !important; /* Remove old borders */
+    border: none !important;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.court-status .status-text.open {
-    color: #10B981; /* Modern Green */
-    font-weight: 700;
+
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+
+    overflow: hidden;
 }
 /* 1. Turn the entire container box purple when booked */
 .court-status:has(.status-text.booked) {
@@ -3952,3 +3991,351 @@ html {
   cursor: not-allowed !important;
   font-weight: 500 !important;
 }
+
+/* ==========================================
+   WEEK NAVIGATION
+   ========================================== */
+
+.calendar-week-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.week-nav-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: var(--purple-dark);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.week-nav-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.week-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.week-current-label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--purple-dark);
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   MOBILE
+   ========================================== */
+
+@media (max-width: 600px) {
+
+  .calendar-week-navigation {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .week-nav-btn {
+    padding: 8px 9px;
+    font-size: 0.75rem;
+    border-radius: 7px;
+  }
+
+  .week-current-label {
+    font-size: 0.78rem;
+  }
+
+}
+
+/* ==========================================
+   DESKTOP CALENDAR - COURT STATUS FIX
+   ========================================== */
+
+@media (min-width: 769px) {
+
+  .calendar-grid {
+    grid-template-columns: 100px repeat(7, minmax(130px, 1fr));
+    min-width: 1050px;
+  }
+
+  .calendar-grid .court-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+
+    padding: 6px 8px;
+    margin-bottom: 6px;
+
+    background: #f9fafb;
+    border-radius: 8px;
+    border: none !important;
+
+    overflow: hidden;
+  }
+
+  .calendar-grid .court-name {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .calendar-grid .status-text {
+    flex: 0 0 auto;
+
+    white-space: nowrap;
+    text-align: center;
+
+    font-size: 0.65rem;
+    padding: 3px 5px;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  .calendar-grid .status-text.open-play {
+    color: #6b7280;
+    background: #e5e7eb;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+/* ==========================================
+   HIRAYA - DESKTOP CALENDAR WIDTH FIX
+   ========================================== */
+
+@media (min-width: 769px) {
+
+    /* Main schedule card */
+    .calendar-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    /* Give the weekly grid more breathing room */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: 110px repeat(7, minmax(150px, 1fr));
+        min-width: 1160px;
+        gap: 6px;
+    }
+
+    /* Court cards */
+    .calendar-grid .court-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+
+        padding: 7px 8px;
+        margin-bottom: 6px;
+
+        overflow: hidden;
+    }
+
+    /* Don't aggressively shrink the court name */
+    .calendar-grid .court-name {
+        flex: 0 0 auto;
+
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: clip;
+
+        font-size: 0.7rem;
+    }
+
+    /* Status badge */
+    .calendar-grid .status-text {
+        flex: 0 0 auto;
+
+        white-space: nowrap;
+        font-size: 0.65rem;
+
+        padding: 3px 6px;
+        border-radius: 4px;
+
+        box-sizing: border-box;
+    }
+
+    /* Open Play */
+    .calendar-grid .status-text.open-play {
+        color: #6b7280;
+        background: #e5e7eb;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+}
+
+/* ==========================================
+   DESKTOP WEEKLY SCHEDULE - WIDER CARD
+   ========================================== */
+
+@media (min-width: 769px) {
+
+    /* Let the schedule section use the available page width */
+    .calendar-wrapper {
+        width: 100%;
+        max-width: none;
+        overflow-x: visible;
+        box-sizing: border-box;
+    }
+
+    /* Make the calendar itself fill the card */
+    .calendar-grid {
+        width: 100%;
+        min-width: 0;
+
+        grid-template-columns: 90px repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        box-sizing: border-box;
+    }
+
+    /* Give each court row enough breathing room */
+    .calendar-grid .court-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 5px;
+        width: 100%;
+        box-sizing: border-box;
+
+        padding: 7px 6px;
+        margin-bottom: 5px;
+
+        overflow: hidden;
+    }
+
+    /* Court name */
+    .calendar-grid .court-name {
+        flex: 0 1 auto;
+        min-width: 0;
+
+        white-space: nowrap;
+        font-size: 0.68rem;
+    }
+
+    /* Status */
+    .calendar-grid .status-text {
+        flex: 0 1 auto;
+        min-width: 0;
+
+        white-space: nowrap;
+        font-size: 0.62rem;
+        padding: 3px 5px;
+    }
+
+    /* Open Play */
+    .calendar-grid .status-text.open-play {
+        color: #6b7280;
+        background: #e5e7eb;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+}
+
+/* ==========================================
+   WIDER DESKTOP WEEKLY SCHEDULE
+   ========================================== */
+
+@media (min-width: 769px) {
+
+    /* Allow the schedule to extend beyond the normal container */
+    .container:has(.calendar-wrapper) {
+        max-width: 1400px;
+    }
+
+    .calendar-wrapper {
+        width: 100%;
+        overflow-x: visible;
+        box-sizing: border-box;
+    }
+
+    .calendar-grid {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: 100px repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        box-sizing: border-box;
+    }
+
+    .calendar-grid .court-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+
+        width: 100%;
+        padding: 7px 8px;
+        margin-bottom: 6px;
+
+        box-sizing: border-box;
+    }
+
+    .calendar-grid .court-name {
+        flex-shrink: 0;
+        white-space: nowrap;
+        font-size: 0.7rem;
+    }
+
+    .calendar-grid .status-text {
+        flex-shrink: 0;
+        white-space: nowrap;
+        font-size: 0.65rem;
+        padding: 3px 6px;
+    }
+
+}
+
+.mobile-status.open-play {
+    background: #e5e7eb;
+    color: #6b7280;
+    cursor: not-allowed;
+    pointer-events: none;
+    font-weight: 700;
+}
+
+.mobile-status.open-play {
+    white-space: nowrap !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 78px;
+    padding: 4px 7px;
+    box-sizing: border-box;
+    font-size: 0.65rem;
+    line-height: 1;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-weight: 700;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+

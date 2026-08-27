@@ -75,28 +75,128 @@ let ballQty = 0;
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
+let currentWeekOffset = 0;
+
+// ==========================================
+// WEEK NAVIGATION BUTTONS
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+
+  const prevWeekBtn = document.getElementById('prevWeekBtn');
+  const nextWeekBtn = document.getElementById('nextWeekBtn');
+  const weekCurrentLabel = document.getElementById('weekCurrentLabel');
+
+  function updateWeekNavigation() {
+
+    // Disable previous week when already on current week
+    if (prevWeekBtn) {
+      prevWeekBtn.disabled = currentWeekOffset <= 0;
+    }
+
+    // Update week label
+    if (weekCurrentLabel) {
+      const dates = getWeekDates();
+
+      const firstDate = dates[0].dateObj;
+      const lastDate = dates[6].dateObj;
+
+      const options = {
+        month: 'short',
+        day: 'numeric'
+      };
+
+      weekCurrentLabel.textContent =
+        `${firstDate.toLocaleDateString('en-US', options)} - ` +
+        `${lastDate.toLocaleDateString('en-US', options)}`;
+    }
+  }
+
+// PREVIOUS WEEK
+if (prevWeekBtn) {
+  prevWeekBtn.addEventListener('click', async () => {
+
+    if (currentWeekOffset > 0) {
+      currentWeekOffset--;
+
+      console.log('⬅️ Week offset:', currentWeekOffset);
+      console.log(
+        '⬅️ Week dates:',
+        getWeekDates().map(d => d.dateStr)
+      );
+
+      await renderCalendar();
+      await window.renderMobileSchedule();
+
+      updateWeekNavigation();
+    }
+
+  });
+}
+
+// NEXT WEEK
+if (nextWeekBtn) {
+  nextWeekBtn.addEventListener('click', async () => {
+
+    currentWeekOffset++;
+
+    console.log('➡️ Week offset:', currentWeekOffset);
+    console.log(
+      '➡️ Week dates:',
+      getWeekDates().map(d => d.dateStr)
+    );
+
+    await renderCalendar();
+    await window.renderMobileSchedule();
+
+    updateWeekNavigation();
+  });
+}
+
+updateWeekNavigation();
+
+});
+
 function getWeekDates() {
   const dates = [];
-  const curr = new Date();
-  const first = curr.getDate() - curr.getDay();
-  
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Start from Sunday of the current week
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay());
+
+  // Move to selected week
+  sunday.setDate(sunday.getDate() + (currentWeekOffset * 7));
+
   for (let i = 0; i < 7; i++) {
-    const day = new Date(curr.setDate(first + i));
-    const dayCopy = new Date(day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
+    const day = new Date(sunday);
+    day.setDate(sunday.getDate() + i);
+
     dates.push({
-      dateObj: dayCopy,
-      dateStr: dayCopy.toISOString().split('T')[0],
-      dayName: dayCopy.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-      dayNum: dayCopy.getDate(),
-      isToday: dayCopy.toDateString() === new Date().toDateString(),
-      isPast: dayCopy < today
+      dateObj: new Date(day),
+
+      dateStr:
+        day.getFullYear() + '-' +
+        String(day.getMonth() + 1).padStart(2, '0') + '-' +
+        String(day.getDate()).padStart(2, '0'),
+
+      dayName: day
+        .toLocaleDateString('en-US', { weekday: 'short' })
+        .toUpperCase(),
+
+      dayNum: day.getDate(),
+
+      isToday:
+        day.toDateString() === today.toDateString(),
+
+      isPast: day < today
     });
   }
+
   return dates;
 }
+
 
 function formatTime12(time24) {
   const [hours] = time24.split(':');
@@ -106,17 +206,26 @@ function formatTime12(time24) {
   return `${h12}:00 ${ampm}`;
 }
 
+
 function isSlotInPast(dateStr, timeStr) {
   if (!dateStr || !timeStr) return false;
+
   const now = new Date();
-  // Combine date and time to check if it's before the current moment
   const slotDate = new Date(`${dateStr}T${timeStr}:00`);
+
   return slotDate < now;
 }
 
+
 function getFilteredTimeSlots() {
-  if (currentFilter === 'am') return TIME_SLOTS.filter(t => parseInt(t) < 12);
-  if (currentFilter === 'pm') return TIME_SLOTS.filter(t => parseInt(t) >= 12);
+  if (currentFilter === 'am') {
+    return TIME_SLOTS.filter(t => parseInt(t) < 12);
+  }
+
+  if (currentFilter === 'pm') {
+    return TIME_SLOTS.filter(t => parseInt(t) >= 12);
+  }
+
   return TIME_SLOTS;
 }
 
@@ -233,36 +342,57 @@ async function renderCalendar() {
             clickAction = '';
           }
 
-          // 1. Check Scheduled Date Closure (Highest Priority)
+       
 
-          // 1. Check Scheduled Date Closure (Highest Priority)
-          if (scheduledClosure) {
-            statusClass = scheduledClosure.reason === 'tournament' ? 'tournament' : 'maintenance';
-            statusText = scheduledClosure.reason === 'tournament' ? 'Event' : 'Maint.';
-            clickAction = '';
-          } 
-          // 2. Check General Court Status
-          else if (courtStatus === 'maintenance') {
-            statusClass = 'maintenance';
-            statusText = 'Maint.';
-            clickAction = '';
-          } else if (courtStatus === 'tournament') {
-            statusClass = 'tournament';
-            statusText = 'Event';
-            clickAction = '';
-          } 
-          // 3. Check Bookings
-          else if (booking) {
-            if (booking.status === 'confirmed') {
-              statusClass = 'booked';
-              statusText = 'Booked';
-              clickAction = '';
-            } else if (booking.status === 'pending') {
-              statusClass = 'pending';
-              statusText = 'Pending';
-              clickAction = '';
-            }
-          }
+// 1. Check Scheduled Date Closure (Highest Priority)
+if (scheduledClosure) {
+  statusClass = scheduledClosure.reason === 'tournament'
+    ? 'tournament'
+    : 'maintenance';
+
+  statusText = scheduledClosure.reason === 'tournament'
+    ? 'Event'
+    : 'Maint.';
+
+  clickAction = '';
+}
+
+// 2. Check General Court Status
+else if (courtStatus === 'maintenance') {
+  statusClass = 'maintenance';
+  statusText = 'Maint.';
+  clickAction = '';
+}
+
+else if (courtStatus === 'tournament') {
+  statusClass = 'tournament';
+  statusText = 'Event';
+  clickAction = '';
+}
+
+// 3. Check Open Play Schedule
+else if (
+  (court === 'Court 1' && parseInt(time.split(':')[0]) >= 20) ||
+  (court === 'Court 2' && parseInt(time.split(':')[0]) >= 17)
+) {
+  statusClass = 'open-play';
+  statusText = 'Open Play';
+  clickAction = '';
+}
+
+// 4. Check Bookings
+else if (booking) {
+  if (booking.status === 'confirmed') {
+    statusClass = 'booked';
+    statusText = 'Booked';
+    clickAction = '';
+  } 
+  else if (booking.status === 'pending') {
+    statusClass = 'pending';
+    statusText = 'Pending';
+    clickAction = '';
+  }
+}
           
           html += `<div class="court-status">
             <span class="court-name">${court}</span>
@@ -332,6 +462,10 @@ async function renderMobileSchedule() {
   if (!listContainer) return;
   
   const weekDates = getWeekDates();
+  console.log(
+  '📱 MOBILE RENDER:',
+  weekDates.map(d => d.dateStr)
+);
   const db = await getBookings();
   const filteredTimes = getFilteredTimeSlots();
   
@@ -339,8 +473,7 @@ async function renderMobileSchedule() {
   
   // Group by day
   weekDates.forEach(day => {
-    // Skip rendering if all times are past
-    if (day.isPast) return;
+
     
     html += `<div class="mobile-day-group">
       <div class="mobile-day-header ${day.isToday ? 'today' : ''}">
@@ -374,10 +507,32 @@ async function renderMobileSchedule() {
           b.status !== 'cancelled'
         );
         
-        const isBooked = !!booking;
-        const statusClass = isBooked ? 'booked' : 'open';
-        const statusText = isBooked ? 'Booked' : 'Open';
-        const clickAction = !isBooked ? `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"` : '';
+// Check booking status
+const isBooked = !!booking;
+
+// Open Play schedule
+// Court 2: booking allowed only up to 4:00 PM
+// Court 1: booking allowed only up to 7:00 PM
+
+const hour = parseInt(time.split(':')[0]);
+
+let statusClass = 'open';
+let statusText = 'Open';
+let clickAction = `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`;
+
+if (
+  (court === 'Court 1' && hour >= 20) ||
+  (court === 'Court 2' && hour >= 17)
+) {
+  statusClass = 'open-play';
+  statusText = 'Open Play';
+  clickAction = '';
+}
+else if (isBooked) {
+  statusClass = booking.status === 'pending' ? 'pending' : 'booked';
+  statusText = booking.status === 'pending' ? 'Pending' : 'Booked';
+  clickAction = '';
+}
         
         html += `<div class="mobile-court-item">
           <span class="mobile-court-name">${court}</span>
@@ -392,12 +547,15 @@ async function renderMobileSchedule() {
   });
   
   // If no schedule was generated, show empty state
-  if (html === '') {
+   if (html === '') {
     listContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: 2rem;">No available slots this week.</p>';
   } else {
     listContainer.innerHTML = html;
   }
 }
+
+// Make the function available globally
+window.renderMobileSchedule = renderMobileSchedule;
   // Add-on Quantity Logic
   document.querySelectorAll('.qty-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
