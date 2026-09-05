@@ -1262,26 +1262,20 @@ function renderAdminTable(bookings) {
           </span>
         </td>
 
-        <td>
-          <button
-            class="action-btn cancel"
-            onclick="cancelBookingFromAdmin('${first.bookingId}')">
-            Cancel
-          </button>
+<td>
+  <button
+    class="action-btn view"
+    style="background:#e0e7ff; color:#3730a3;"
+    onclick="openEditModal('${first.bookingId}')">
+    Edit
+  </button>
 
-          <button
-            class="action-btn view"
-            style="background:#e0e7ff; color:#3730a3;"
-            onclick="openEditModal('${first.bookingId}')">
-            Edit
-          </button>
-
-          <button
-            class="action-btn view"
-            onclick="viewBookingDetails('${first.bookingId}')">
-            View
-          </button>
-        </td>
+  <button
+    class="action-btn view"
+    onclick="viewBookingDetails('${first.bookingId}')">
+    View
+  </button>
+</td>
       </tr>
 
 
