@@ -618,7 +618,43 @@ window.renderMobileSchedule = renderMobileSchedule;
       const mobile = document.getElementById('customerMobile').value;
       const email = document.getElementById('customerEmail').value;
       const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
-      const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+
+// ==========================================
+// OPEN PLAY BOOKING RESTRICTIONS
+// ==========================================
+
+const selectedCourt = document.getElementById('hiddenCourt').value;
+const startHour = parseInt(startTimeStr.split(':')[0]);
+
+// Court 2: 4:00 PM is the LAST bookable hour.
+// A booking must finish by 5:00 PM.
+if (selectedCourt === 'Court 2') {
+  const bookingEndHour = startHour + duration;
+
+  if (bookingEndHour > 17) {
+    alert(
+      'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
+      'Please select a shorter booking or choose another time.'
+    );
+    return;
+  }
+}
+
+// Court 1: 7:00 PM is the LAST bookable hour.
+// A booking must finish by 8:00 PM.
+if (selectedCourt === 'Court 1') {
+  const bookingEndHour = startHour + duration;
+
+  if (bookingEndHour > 20) {
+    alert(
+      'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
+      'Please select a shorter booking or choose another time.'
+    );
+    return;
+  }
+}
+
+const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
       const slotDisplay = document.getElementById('selectedSlotDisplay').value;
       
       const addonsText = [];
@@ -1120,14 +1156,14 @@ function renderAdminTable(bookings) {
   const tbody = document.getElementById('bookingsTableBody');
   if (!tbody) return;
 
-    // 1. Group bookings by our new Firebase ID
+  // Group bookings by bookingId
   const grouped = {};
   bookings.forEach(b => {
-    if (!grouped[b.bookingId]) grouped[b.bookingId] = []; // ✅ Looking for 'bookingId'
+    if (!grouped[b.bookingId]) grouped[b.bookingId] = [];
     grouped[b.bookingId].push(b);
   });
 
-  // 2. Convert to array of groups
+  // Convert to array of groups
   const bookingGroups = Object.values(grouped);
 
   if (bookingGroups.length === 0) {
@@ -1147,21 +1183,22 @@ function renderAdminTable(bookings) {
     return;
   }
 
-// Sort bookings: latest date/time first
-bookingGroups.sort((a, b) => {
-  const dateA = new Date(`${a[0].date}T${a[0].time}`);
-  const dateB = new Date(`${b[0].date}T${b[0].time}`);
+  // Sort bookings: latest date/time first
+  bookingGroups.sort((a, b) => {
+    const dateA = new Date(`${a[0].date}T${a[0].time}`);
+    const dateB = new Date(`${b[0].date}T${b[0].time}`);
 
-  return dateB - dateA;
-});
+    return dateB - dateA;
+  });
 
   tbody.innerHTML = bookingGroups.map(group => {
+
     // Sort the hours in this group chronologically
     group.sort((a, b) => a.time.localeCompare(b.time));
-    
+
     const first = group[0];
     const last = group[group.length - 1];
-    const duration = group.length; // Number of hours
+    const duration = group.length;
 
     const total = calculateBookingTotal(first);
 
@@ -1170,46 +1207,123 @@ bookingGroups.sort((a, b) => {
     const endHour = lastHour + 1;
     const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
 
-    
-
-
     // Format Add-ons text
     const addonsText = [];
-    if (first.addons?.paddle > 0) addonsText.push(`${first.addons.paddle}x Paddle`);
-    if (first.addons?.ball > 0) addonsText.push(`${first.addons.ball}x Ball`);
+
+    if (first.addons?.paddle > 0) {
+      addonsText.push(`${first.addons.paddle}x Paddle`);
+    }
+
+    if (first.addons?.ball > 0) {
+      addonsText.push(`${first.addons.ball}x Ball`);
+    }
 
     return `
-      <tr>
-        <td><strong>${first.bookingId}</strong></td>
+      <!-- DESKTOP TABLE ROW -->
+      <tr class="desktop-booking-row">
+        <td>
+          <strong>${first.bookingId}</strong>
+        </td>
+
         <td>${first.date}</td>
+
         <td>
           ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
-          <br><small style="color:var(--gray-500)">(${duration}h)</small>
+          <br>
+          <small style="color:var(--gray-500)">(${duration}h)</small>
         </td>
+
         <td>${first.court}</td>
+
         <td>
           <div>${first.name}</div>
-          <small style="color: var(--gray-500);">${first.mobile}</small>
+          <small style="color: var(--gray-500);">
+            ${first.mobile}
+          </small>
         </td>
+
         <td>
           <span style="text-transform: capitalize; font-weight: 600;">
             ${first.payment === 'gcash' ? '📱 GCash' : '💵 Venue'}
           </span>
         </td>
-        <td>${addonsText.length > 0 ? addonsText.join(', ') : '-'}</td>
-        <td><strong>₱${total}</strong></td>
+
+        <td>
+          ${addonsText.length > 0 ? addonsText.join(', ') : '-'}
+        </td>
+
+        <td>
+          <strong>₱${total}</strong>
+        </td>
+
         <td>
           <span class="status-badge ${first.status || 'confirmed'}">
             ${first.status || 'confirmed'}
           </span>
         </td>
+
         <td>
-          
-                    <button class="action-btn cancel" onclick="cancelBookingFromAdmin('${first.bookingId}')">Cancel</button>
-          <button class="action-btn view" style="background:#e0e7ff; color:#3730a3;" onclick="openEditModal('${first.bookingId}')">Edit</button>
-          <button class="action-btn view" onclick="viewBookingDetails('${first.bookingId}')">View</button>
+          <button
+            class="action-btn cancel"
+            onclick="cancelBookingFromAdmin('${first.bookingId}')">
+            Cancel
+          </button>
+
+          <button
+            class="action-btn view"
+            style="background:#e0e7ff; color:#3730a3;"
+            onclick="openEditModal('${first.bookingId}')">
+            Edit
+          </button>
+
+          <button
+            class="action-btn view"
+            onclick="viewBookingDetails('${first.bookingId}')">
+            View
+          </button>
         </td>
       </tr>
+
+
+<!-- MOBILE BOOKING CARD -->
+<tr
+  class="mobile-booking-card"
+  onclick="viewBookingDetails('${first.bookingId}')"
+>
+  <td colspan="10">
+
+    <div class="mobile-booking-inner">
+
+      <div class="mobile-booking-main">
+
+        <div class="mobile-booking-top">
+          <div class="mobile-booking-id">
+            ${first.bookingId}
+          </div>
+
+          <span class="mobile-status-badge ${first.status || 'confirmed'}">
+            ${(first.status || 'confirmed').toUpperCase()}
+          </span>
+        </div>
+
+        <div class="mobile-booking-name">
+          ${first.name}
+        </div>
+
+        <div class="mobile-booking-time">
+          🕐 ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
+        </div>
+
+      </div>
+
+      <div class="mobile-booking-arrow">
+        ›
+      </div>
+
+    </div>
+
+  </td>
+</tr>
     `;
   }).join('');
 }
