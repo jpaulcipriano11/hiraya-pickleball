@@ -776,20 +776,21 @@ const paymentMethod = document.querySelector('input[name="payment"]:checked').va
         const currentHour = startHour + i;
         const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:00`;
 
-        bookingsToSave.push({
-          bookingId: bookingId, // We use 'bookingId' for our custom ID
-          date: date,
-          time: currentTimeStr,
-          court: court,
-          name: document.getElementById('customerName').value,
-          mobile: document.getElementById('customerMobile').value,
-          email: document.getElementById('customerEmail').value,
-          payment: paymentMethod,
-          addons: { paddle: paddleQty, ball: ballQty },
-          duration: duration,
-          status: status,
-          totalAmount: totalAmount
-        });
+       bookingsToSave.push({
+  bookingId: bookingId,
+  date: date,
+  time: currentTimeStr,
+  court: court,
+  name: document.getElementById('customerName').value,
+  mobile: document.getElementById('customerMobile').value,
+  email: document.getElementById('customerEmail').value,
+  payment: paymentMethod,
+  addons: { paddle: paddleQty, ball: ballQty },
+  duration: duration,
+  status: status,
+  totalAmount: totalAmount,
+  createdAt: Date.now()
+});
       }
       
       await addBooking(bookingsToSave); // Saves to the cloud!
@@ -1206,13 +1207,13 @@ function renderAdminTable(bookings) {
     return;
   }
 
-  // Sort bookings: latest date/time first
-  bookingGroups.sort((a, b) => {
-    const dateA = new Date(`${a[0].date}T${a[0].time}`);
-    const dateB = new Date(`${b[0].date}T${b[0].time}`);
+// Sort bookings: latest BOOKED first
+bookingGroups.sort((a, b) => {
+  const createdA = a[0].createdAt || 0;
+  const createdB = b[0].createdAt || 0;
 
-    return dateB - dateA;
-  });
+  return createdB - createdA;
+});
 
   tbody.innerHTML = bookingGroups.map(group => {
 
