@@ -77,6 +77,45 @@ let ballQty = 0;
 // ==========================================
 let currentWeekOffset = 0;
 
+
+function validateOpenPlayRestriction(court, startTimeStr, duration) {
+  if (!court || !startTimeStr || !duration) {
+    return {
+      allowed: false,
+      message: 'Please select a valid court, time, and duration.'
+    };
+  }
+
+  const startHour = parseInt(startTimeStr.split(':')[0], 10);
+  const endHour = startHour + duration;
+
+  // Court 1: Open Play starts at 8:00 PM
+  if (court === 'Court 1' && endHour > 20) {
+    return {
+      allowed: false,
+      message:
+        'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
+        'Your booking would extend into the Open Play period.\n' +
+        'Please select a shorter duration or an earlier time.'
+    };
+  }
+
+  // Court 2: Open Play starts at 5:00 PM
+  if (court === 'Court 2' && endHour > 17) {
+    return {
+      allowed: false,
+      message:
+        'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
+        'Your booking would extend into the Open Play period.\n' +
+        'Please select a shorter duration or an earlier time.'
+    };
+  }
+
+  return {
+    allowed: true,
+    endHour: endHour
+  };
+}
 // ==========================================
 // WEEK NAVIGATION BUTTONS
 // ==========================================
@@ -626,34 +665,6 @@ window.renderMobileSchedule = renderMobileSchedule;
 const selectedCourt = document.getElementById('hiddenCourt').value;
 const startHour = parseInt(startTimeStr.split(':')[0]);
 
-// Court 2: 4:00 PM is the LAST bookable hour.
-// A booking must finish by 5:00 PM.
-if (selectedCourt === 'Court 2') {
-  const bookingEndHour = startHour + duration;
-
-  if (bookingEndHour > 17) {
-    alert(
-      'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
-      'Please select a shorter booking or choose another time.'
-    );
-    return;
-  }
-}
-
-// Court 1: 7:00 PM is the LAST bookable hour.
-// A booking must finish by 8:00 PM.
-if (selectedCourt === 'Court 1') {
-  const bookingEndHour = startHour + duration;
-
-  if (bookingEndHour > 20) {
-    alert(
-      'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
-      'Please select a shorter booking or choose another time.'
-    );
-    return;
-  }
-}
-
 const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
       const slotDisplay = document.getElementById('selectedSlotDisplay').value;
       
@@ -715,6 +726,18 @@ const paymentMethod = document.querySelector('input[name="payment"]:checked').va
       const basePrice = hourlyRate * duration;
       const addonsTotal = (paddleQty * 30) + (ballQty * 100);
       const totalAmount = basePrice + addonsTotal; // 🌟 THE CORRECT TOTAL
+
+ const openPlayCheck = validateOpenPlayRestriction(
+        court,
+        startTimeStr,
+        duration
+      );
+
+      if (!openPlayCheck.allowed) {
+        alert(openPlayCheck.message);
+        closeReviewModal();
+        return;
+      }
 
       const db = await getBookings(); // ✅ Fetches from Firebase
       const startHour = parseInt(startTimeStr.split(':')[0]);
