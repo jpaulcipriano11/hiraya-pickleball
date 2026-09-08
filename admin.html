@@ -445,35 +445,81 @@ window.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // SETTINGS LOGIC
   // ==========================================
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-  if (saveSettingsBtn) {
-        // Load existing settings on page load
-    const savedSettings = JSON.parse(localStorage.getItem('hirayaFacilitySettings')) || {
-      courts: { 'Court 1': 'open', 'Court 2': 'open' }
-    };
-    
-    document.getElementById('court1Status').value = savedSettings.courts['Court 1'];
-    document.getElementById('court2Status').value = savedSettings.courts['Court 2'];
+async function loadFacilitySettings() {
+  try {
+    while (!window.firebaseFunctions || !window.db) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
 
-    // Save settings on button click
-    saveSettingsBtn.addEventListener('click', () => {
-      const newSettings = {
-        courts: {
-          'Court 1': document.getElementById('court1Status').value,
-          'Court 2': document.getElementById('court2Status').value
-        }
-      };
-      
-      localStorage.setItem('hirayaFacilitySettings', JSON.stringify(newSettings));
-      
-      const msg = document.getElementById('settingsMessage');
-      msg.textContent = '✅ Settings saved successfully!';
-      msg.className = 'settings-message success';
-      msg.classList.remove('hidden');
-      
-      setTimeout(() => msg.classList.add('hidden'), 3000);
-    });
+    const {
+      doc,
+      getDoc
+    } = window.firebaseFunctions;
+
+    const settingsRef = doc(window.db, 'settings', 'facility');
+    const snapshot = await getDoc(settingsRef);
+
+    const savedSettings = snapshot.exists()
+      ? snapshot.data()
+      : {
+          facilityStatus: 'open',
+          courts: {
+            'Court 1': 'open',
+            'Court 2': 'open'
+          }
+        };
+
+    document.getElementById('court1Status').value =
+      savedSettings.courts?.['Court 1'] || 'open';
+
+    document.getElementById('court2Status').value =
+      savedSettings.courts?.['Court 2'] || 'open';
+
+  } catch (error) {
+    console.error('Error loading facility settings:', error);
   }
+}
+
+loadFacilitySettings();
+
+// Save settings on button click
+saveSettingsBtn.addEventListener('click', async () => {
+  const newSettings = {
+    courts: {
+      'Court 1': document.getElementById('court1Status').value,
+      'Court 2': document.getElementById('court2Status').value
+    },
+    facilityStatus: 'open'
+  };
+
+  try {
+    const {
+      doc,
+      setDoc
+    } = window.firebaseFunctions;
+
+    await setDoc(
+      doc(window.db, 'settings', 'facility'),
+      newSettings
+    );
+
+    const msg = document.getElementById('settingsMessage');
+    msg.textContent = '✅ Settings saved successfully!';
+    msg.className = 'settings-message success';
+    msg.classList.remove('hidden');
+
+    setTimeout(() => msg.classList.add('hidden'), 3000);
+
+  } catch (error) {
+    console.error('Error saving facility settings:', error);
+
+    const msg = document.getElementById('settingsMessage');
+    msg.textContent = '❌ Unable to save settings.';
+    msg.className = 'settings-message error';
+    msg.classList.remove('hidden');
+  }
+});
+  
 </script>
 
   <!-- EmailJS SDK -->
@@ -545,58 +591,148 @@ window.addEventListener('DOMContentLoaded', () => {
     dateInput.min = new Date().toISOString().split('T')[0];
   }
 
-  function renderClosures() {
-    let closures = JSON.parse(localStorage.getItem('hirayaScheduledClosures')) || [];
-    if (!closuresList) return;
-    
-    // Sort by date
-    closures.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+async function renderClosures() {
+  if (!closuresList) return;
+
+  // Wait until Firebase is ready
+  while (!window.firebaseFunctions || !window.db) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
+  try {
+    const {
+      collection,
+      getDocs
+    } = window.firebaseFunctions;
+
+    const snapshot = await getDocs(
+      collection(window.db, 'scheduledClosures')
+    );
+
+    const closures = snapshot.docs.map(document => ({
+      id: document.id,
+      ...document.data()
+    }));
+
+    closures.sort((a, b) => {
+      return (a.date || '').localeCompare(b.date || '');
+    });
+
     if (closures.length === 0) {
-      closuresList.innerHTML = '<p style="text-align:center; color: var(--gray-500); width:100%;">No scheduled closures.</p>';
+      closuresList.innerHTML =
+        '<p style="text-align:center; color: var(--gray-500); width:100%;">No scheduled closures.</p>';
       return;
     }
 
-    closuresList.innerHTML = closures.map((c, index) => `
+    closuresList.innerHTML = closures.map(c => `
       <div class="closure-tag ${c.reason}">
         <strong>${c.date}</strong>
-        <span>${c.court} - ${c.reason === 'tournament' ? 'Tournament' : 'Maintenance'}</span>
-        <button onclick="deleteClosure(${index})">&times;</button>
+        <span>
+          ${c.court} -
+          ${
+            c.reason === 'tournament'
+              ? 'Tournament'
+              : c.reason === 'maintenance'
+              ? 'Maintenance'
+              : 'Closed'
+          }
+        </span>
+        <button onclick="deleteClosure('${c.id}')">&times;</button>
       </div>
     `).join('');
+
+  } catch (error) {
+    console.error('Error loading scheduled closures:', error);
+
+    closuresList.innerHTML =
+      '<p style="text-align:center; color: var(--gray-500); width:100%;">Unable to load scheduled closures.</p>';
   }
+}
 
-  window.deleteClosure = function(index) {
-    let closures = JSON.parse(localStorage.getItem('hirayaScheduledClosures')) || [];
-    closures.splice(index, 1);
-    localStorage.setItem('hirayaScheduledClosures', JSON.stringify(closures));
-    renderClosures();
-  };
 
-  if (addClosureBtn) {
-    addClosureBtn.addEventListener('click', () => {
-      const date = document.getElementById('closureDate').value;
-      const court = document.getElementById('closureCourt').value;
-      const reason = document.getElementById('closureReason').value;
+window.deleteClosure = async function(closureId) {
+  if (!confirm('Delete this scheduled closure?')) return;
 
-      if (!date) { alert('Please select a date.'); return; }
+  try {
+    const {
+      doc,
+      deleteDoc
+    } = window.firebaseFunctions;
 
-      let closures = JSON.parse(localStorage.getItem('hirayaScheduledClosures')) || [];
-      
-      // Prevent duplicates
-      const exists = closures.some(c => c.date === date && (c.court === court || c.court === 'All'));
-      if (exists) { alert('A closure already exists for this date/court.'); return; }
+    await deleteDoc(
+      doc(window.db, 'scheduledClosures', closureId)
+    );
 
-      closures.push({ date, court, reason });
-      localStorage.setItem('hirayaScheduledClosures', JSON.stringify(closures));
-      
-      document.getElementById('closureDate').value = ''; // Reset date
-      renderClosures();
-    });
+    await renderClosures();
+
+  } catch (error) {
+    console.error('Error deleting scheduled closure:', error);
+    alert('Unable to delete the scheduled closure.');
   }
+};
 
-  // Initial render
-  renderClosures();
+
+if (addClosureBtn) {
+  addClosureBtn.addEventListener('click', async () => {
+    const date = document.getElementById('closureDate').value;
+    const court = document.getElementById('closureCourt').value;
+    const reason = document.getElementById('closureReason').value;
+
+    if (!date) {
+      alert('Please select a date.');
+      return;
+    }
+
+    try {
+      const {
+        collection,
+        getDocs,
+        addDoc
+      } = window.firebaseFunctions;
+
+      const closuresRef =
+        collection(window.db, 'scheduledClosures');
+
+      const snapshot =
+        await getDocs(closuresRef);
+
+      const closures =
+        snapshot.docs.map(document => document.data());
+
+      const exists = closures.some(c =>
+        c.date === date &&
+        (
+          c.court === court ||
+          c.court === 'All' ||
+          court === 'All'
+        )
+      );
+
+      if (exists) {
+        alert('A closure already exists for this date/court.');
+        return;
+      }
+
+      await addDoc(closuresRef, {
+        date,
+        court,
+        reason
+      });
+
+      document.getElementById('closureDate').value = '';
+
+      await renderClosures();
+
+    } catch (error) {
+      console.error('Error adding scheduled closure:', error);
+      alert('Unable to save the scheduled closure. Please try again.');
+    }
+  });
+}
+
+
+// Initial render
+renderClosures();
 
 </script>
   <!-- Toast Notification Container -->
@@ -606,18 +742,21 @@ window.addEventListener('DOMContentLoaded', () => {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 
-  import {
-    getFirestore,
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    where,
-    updateDoc,
-    doc,
-    deleteDoc,
-    orderBy
-  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+  doc,
+  deleteDoc,
+  orderBy,
+  writeBatch,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCraPGNB1mIlY_nsH9R_FHB276PnBgdBWM",
@@ -634,22 +773,28 @@ window.addEventListener('DOMContentLoaded', () => {
   // Make Firebase available to app.js
   window.db = db;
 
-  window.firebaseFunctions = {
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    where,
-    updateDoc,
-    doc,
-    deleteDoc,
-    orderBy
-  };
+window.firebaseFunctions = {
+  collection,
+  addDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+  doc,
+  deleteDoc,
+  orderBy,
+  writeBatch,
+  setDoc
+};
+
+const appScript = document.createElement('script');
+appScript.src = 'app.js';
+document.body.appendChild(appScript);
 
   console.log("🔥 Firebase initialized successfully");
 </script>
 
-<script src="app.js" defer></script>
 
 </body>
 </html>

@@ -591,7 +591,19 @@
   <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  updateDoc,
+  doc,
+  orderBy,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   //  PASTE YOUR FIREBASE CONFIG HERE 👇
 const firebaseConfig = {
@@ -609,7 +621,18 @@ const firebaseConfig = {
 
   // Make Firebase functions available globally for app.js
   window.db = db;
-  window.firebaseFunctions = { collection, addDoc, getDocs, query, where, updateDoc, doc, orderBy };
+window.firebaseFunctions = {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  updateDoc,
+  doc,
+  orderBy,
+  writeBatch
+};
 </script>
 
 <script src="app.js" defer></script>
