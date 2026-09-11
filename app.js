@@ -1699,10 +1699,33 @@ function showToast(message, type = 'success') {
 
 async function confirmBooking(id) {
   await updateBookingStatus(id, 'confirmed');
+
   const db = await getBookings();
-  const booking = db.find(b => b.bookingId === id);
-  if (booking) await notifyCustomerOfConfirmation(booking);
-  showToast(`Booking ${id} confirmed! Customer notified.`, 'success');
+
+  // Get ALL hourly records for this booking
+  const bookings = db.filter(b => b.bookingId === id);
+
+  if (bookings.length > 0) {
+    // Always use the earliest booked hour
+    bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+    const firstBooking = bookings[0];
+
+    const confirmationData = {
+      ...firstBooking,
+
+      // Use saved duration, or number of hourly records as fallback
+      duration: firstBooking.duration || bookings.length
+    };
+
+    await notifyCustomerOfConfirmation(confirmationData);
+  }
+
+  showToast(
+    `Booking ${id} confirmed! Customer notified.`,
+    'success'
+  );
+
   loadAdminData();
 }
 
@@ -2246,36 +2269,95 @@ async function notifyAdminOfNewBooking(bookingData) {
 
 // 2. Notify Customer ONLY when Admin clicks "Confirm"
 async function notifyCustomerOfConfirmation(bookingData) {
-  const { id, date, time, court, duration, name, email, mobile, payment, addons, status } = bookingData;
-  // ✅ Use the saved totalAmount, or fallback to our smart calculator
-  const total = bookingData.totalAmount || calculateBookingTotal(bookingData);
-  
-  const startHour = parseInt(time.split(':')[0]);
-  const endHour = startHour + duration;
-  const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
-  const timeRange = `${formatTime12(time)} - ${formatTime12(endTimeStr)}`;
+  const bookingId = bookingData.bookingId || bookingData.id;
+
+  // Get all hourly records belonging to this booking
+  const db = await getBookings();
+
+  const bookings = db
+    .filter(b => b.bookingId === bookingId)
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  // Fallback in case records cannot be found
+  const firstBooking =
+    bookings.length > 0 ? bookings[0] : bookingData;
+
+  const lastBooking =
+    bookings.length > 0
+      ? bookings[bookings.length - 1]
+      : bookingData;
+
+  const duration =
+    bookings.length > 0
+      ? bookings.length
+      : (parseInt(bookingData.duration) || 1);
+
+  // Actual first booked hour
+  const startTime = firstBooking.time;
+
+  // Actual ending hour = last booked slot + 1 hour
+  const lastHour = parseInt(lastBooking.time.split(':')[0]);
+  const endHour = lastHour + 1;
+
+  const endTimeStr =
+    `${endHour.toString().padStart(2, '0')}:00`;
+
+  const timeRange =
+    `${formatTime12(startTime)} - ${formatTime12(endTimeStr)}`;
+
+  const total =
+    firstBooking.totalAmount ||
+    bookingData.totalAmount ||
+    calculateBookingTotal({
+      ...firstBooking,
+      duration
+    });
+
+  console.log('📧 CONFIRMATION EMAIL DATA:', {
+    bookingId,
+    storedTimes: bookings.map(b => b.time),
+    startTime,
+    endTimeStr,
+    duration,
+    timeRange
+  });
 
   const customerParams = {
-    booking_id: id,
-    customer_name: name,
-    booking_date: date,
+    booking_id: bookingId,
+    customer_name: firstBooking.name,
+    booking_date: firstBooking.date,
     booking_time: timeRange,
-    court: court,
+    court: firstBooking.court,
     duration: duration,
     total_amount: total,
-    to_email: email, 
-    to_name: name
+    to_email: firstBooking.email,
+    to_name: firstBooking.name
   };
 
   try {
-    if (customerParams.to_email && customerParams.to_email.includes('@')) {
-      await emailjs.send('service_i5zradf', 'template_hra91so', customerParams);
-      console.log('✅ Customer confirmation email sent successfully!');
+    if (
+      customerParams.to_email &&
+      customerParams.to_email.includes('@')
+    ) {
+      await emailjs.send(
+        'service_i5zradf',
+        'template_hra91so',
+        customerParams
+      );
+
+      console.log(
+        '✅ Customer confirmation email sent successfully!'
+      );
     } else {
-      console.warn('⚠️ Customer email skipped: Invalid email address.');
+      console.warn(
+        '⚠️ Customer email skipped: Invalid email address.'
+      );
     }
   } catch (error) {
-    console.error('❌ Failed to send customer email:', error);
+    console.error(
+      '❌ Failed to send customer email:',
+      error
+    );
   }
 }
 
