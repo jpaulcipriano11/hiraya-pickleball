@@ -97,43 +97,101 @@
     let currentWeekOffset = 0;
 
 
-    function validateOpenPlayRestriction(court, startTimeStr, duration) {
-      if (!court || !startTimeStr || !duration) {
+    // ==========================================
+    // OPEN PLAY RULES
+    // Friday toggle: 6:00 PM onward
+    // Weekend toggle: Saturday + Sunday, 6:00 PM onward
+    // Both rules apply to BOTH courts.
+    // ==========================================
+    function getDayNumber(dateStr) {
+      if (!dateStr) return -1;
+      const date = new Date(`${dateStr}T00:00:00`);
+      return Number.isNaN(date.getTime()) ? -1 : date.getDay();
+    }
+
+    function isOpenPlaySlot(dateStr, timeStr, settings) {
+      if (!dateStr || !timeStr) return false;
+
+      const hour = parseInt(timeStr.split(':')[0], 10);
+      const dayNumber = getDayNumber(dateStr);
+      const openPlay = settings?.openPlay || {};
+      const startHour = parseInt(openPlay.startHour, 10) || 18;
+
+      if (hour < startHour) return false;
+
+      const isFriday = dayNumber === 5;
+      const isWeekend = dayNumber === 6 || dayNumber === 0;
+
+      return (
+        (isFriday && openPlay.friday === true) ||
+        (isWeekend && openPlay.weekend === true)
+      );
+    }
+
+    async function validateOpenPlayRestriction(dateStr, startTimeStr, duration) {
+      if (!dateStr || !startTimeStr || !duration) {
         return {
           allowed: false,
-          message: 'Please select a valid court, time, and duration.'
+          message: 'Please select a valid date, time, and duration.'
         };
       }
 
+      const settings = await getFacilitySettingsFromFirestore();
+      const openPlay = settings?.openPlay || {};
       const startHour = parseInt(startTimeStr.split(':')[0], 10);
-      const endHour = startHour + duration;
+      const bookingEndHour = startHour + duration;
+      const openPlayStartHour = parseInt(openPlay.startHour, 10) || 18;
+      const dayNumber = getDayNumber(dateStr);
 
-      // Court 1: Open Play starts at 8:00 PM
-      if (court === 'Court 1' && endHour > 20) {
+      const restrictionEnabled =
+        (dayNumber === 5 && openPlay.friday === true) ||
+        ((dayNumber === 6 || dayNumber === 0) && openPlay.weekend === true);
+
+      if (restrictionEnabled && bookingEndHour > openPlayStartHour) {
+        const dayLabel = dayNumber === 5 ? 'Friday' : 'Saturday/Sunday';
         return {
           allowed: false,
           message:
-            'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
-            'Your booking would extend into the Open Play period.\n' +
-            'Please select a shorter duration or an earlier time.'
-        };
-      }
-
-      // Court 2: Open Play starts at 5:00 PM
-      if (court === 'Court 2' && endHour > 17) {
-        return {
-          allowed: false,
-          message:
-            'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
-            'Your booking would extend into the Open Play period.\n' +
+            `${dayLabel} is reserved for Open Play starting at 6:00 PM.\n\n` +
+            'The last bookable court block is 5:00 PM to 6:00 PM.\n' +
             'Please select a shorter duration or an earlier time.'
         };
       }
 
       return {
         allowed: true,
-        endHour: endHour
+        endHour: bookingEndHour
       };
+    }
+
+    async function updateDurationOptionsForOpenPlay(dateStr, startTimeStr) {
+      const durationSelect = document.getElementById('bookingDuration');
+      if (!durationSelect || !dateStr || !startTimeStr) return;
+
+      const settings = await getFacilitySettingsFromFirestore();
+      const openPlay = settings?.openPlay || {};
+      const openPlayStartHour = parseInt(openPlay.startHour, 10) || 18;
+      const startHour = parseInt(startTimeStr.split(':')[0], 10);
+      const dayNumber = getDayNumber(dateStr);
+
+      const restrictionEnabled =
+        (dayNumber === 5 && openPlay.friday === true) ||
+        ((dayNumber === 6 || dayNumber === 0) && openPlay.weekend === true);
+
+      Array.from(durationSelect.options).forEach(option => {
+        const duration = parseInt(option.value, 10) || 1;
+        option.disabled = restrictionEnabled && (startHour + duration > openPlayStartHour);
+      });
+
+      const selectedOption = durationSelect.options[durationSelect.selectedIndex];
+      if (selectedOption?.disabled) {
+        const firstAllowed = Array.from(durationSelect.options).find(option => !option.disabled);
+        if (firstAllowed) {
+          durationSelect.value = firstAllowed.value;
+        }
+      }
+
+      updateFormTotal();
     }
     // ==========================================
     // WEEK NAVIGATION BUTTONS
@@ -452,10 +510,7 @@
     }
 
     // 3. Check Open Play Schedule
-    else if (
-      (court === 'Court 1' && parseInt(time.split(':')[0]) >= 20) ||
-      (court === 'Court 2' && parseInt(time.split(':')[0]) >= 17)
-    ) {
+    else if (isOpenPlaySlot(day.dateStr, time, settings)) {
       statusClass = 'open-play';
       statusText = 'Open Play';
       clickAction = '';
@@ -498,8 +553,9 @@
       const clearSlotBtn = document.getElementById('clearSlotBtn');
       if (clearSlotBtn) clearSlotBtn.disabled = false;
 
-      // 🌟 ADD THIS LINE: Recalculate the total now that a slot is selected!
+      // Recalculate the total and restrict duration when Open Play applies.
       updateFormTotal();
+      updateDurationOptionsForOpenPlay(date, time);
     }
 
     // ==========================================
@@ -669,10 +725,7 @@
               `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`
 
             // 6. Open Play
-            if (
-              (court === 'Court 1' && hour >= 20) ||
-              (court === 'Court 2' && hour >= 17)
-            ) {
+            if (isOpenPlaySlot(day.dateStr, time, facilitySettings)) {
               statusClass = 'open-play';
               statusText = 'Open Play';
               clickAction = '';
@@ -764,7 +817,7 @@
       // ==========================================
       const bookingForm = document.getElementById('bookingForm');
       if (bookingForm) {
-        bookingForm.addEventListener('submit', (e) => {
+        bookingForm.addEventListener('submit', async (e) => {
           e.preventDefault(); // Stop it from saving immediately
           
           const date = document.getElementById('hiddenDate').value;
@@ -781,14 +834,24 @@
           const email = document.getElementById('customerEmail').value;
           const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
 
-    // ==========================================
-    // OPEN PLAY BOOKING RESTRICTIONS
-    // ==========================================
+          // ==========================================
+          // OPEN PLAY BOOKING RESTRICTIONS
+          // ==========================================
+          const selectedCourt = document.getElementById('hiddenCourt').value;
+          const startHour = parseInt(startTimeStr.split(':')[0]);
 
-    const selectedCourt = document.getElementById('hiddenCourt').value;
-    const startHour = parseInt(startTimeStr.split(':')[0]);
+          const openPlayCheck = await validateOpenPlayRestriction(
+            date,
+            startTimeStr,
+            duration
+          );
 
-    const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+          if (!openPlayCheck.allowed) {
+            alert(openPlayCheck.message);
+            return;
+          }
+
+          const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
           const slotDisplay = document.getElementById('selectedSlotDisplay').value;
           
           const addonsText = [];
@@ -838,8 +901,8 @@
             addons: { paddle: paddleQty, ball: ballQty }
           }); // Correct mixed-rate total
 
-     const openPlayCheck = validateOpenPlayRestriction(
-            court,
+          const openPlayCheck = await validateOpenPlayRestriction(
+            date,
             startTimeStr,
             duration
           );
@@ -1241,41 +1304,57 @@
     function getFacilitySettings() {
       return JSON.parse(localStorage.getItem('hirayaFacilitySettings')) || {
         facilityStatus: 'open',
-        courts: { 'Court 1': 'open', 'Court 2': 'open' }
+        courts: { 'Court 1': 'open', 'Court 2': 'open' },
+        openPlay: { friday: false, weekend: false, startHour: 18 }
       };
     }
 
     async function getFacilitySettingsFromFirestore() {
-      try {
-        const {
-          doc,
-          getDoc
-        } = window.firebaseFunctions;
+      const fallback = {
+        facilityStatus: 'open',
+        courts: {
+          'Court 1': 'open',
+          'Court 2': 'open'
+        },
+        openPlay: {
+          friday: false,
+          weekend: false,
+          startHour: 18
+        }
+      };
 
-        const settingsRef = doc(
-          window.db,
-          'settings',
-          'facility'
+      try {
+        await waitForFirebase();
+        if (!window.db || !window.firebaseFunctions) return fallback;
+
+        // Use collection/getDocs so this works even on pages that do not expose getDoc.
+        const { collection, getDocs } = window.firebaseFunctions;
+        const snapshot = await getDocs(collection(window.db, 'settings'));
+        const facilityDoc = snapshot.docs.find(document =>
+          document.id === 'facility' || document.data()?.settingsKey === 'facility'
         );
 
-        const snapshot = await getDoc(settingsRef);
-
-        if (snapshot.exists()) {
-          return snapshot.data();
+        if (facilityDoc) {
+          const data = facilityDoc.data();
+          return {
+            ...fallback,
+            ...data,
+            courts: {
+              ...fallback.courts,
+              ...(data.courts || {})
+            },
+            openPlay: {
+              ...fallback.openPlay,
+              ...(data.openPlay || {})
+            }
+          };
         }
 
       } catch (error) {
         console.error('Error loading facility settings:', error);
       }
 
-      // Safe fallback
-      return {
-        facilityStatus: 'open',
-        courts: {
-          'Court 1': 'open',
-          'Court 2': 'open'
-        }
-      };
+      return fallback;
     }
 
 
@@ -1371,6 +1450,168 @@
     // ADMIN DASHBOARD FUNCTIONS
     // ==========================================
 
+    async function saveOpenPlaySettings(fridayEnabled, weekendEnabled) {
+      await waitForFirebase();
+
+      if (!window.db) {
+        throw new Error('Firebase failed to load');
+      }
+
+      const {
+        collection,
+        getDocs,
+        addDoc,
+        doc,
+        updateDoc
+      } = window.firebaseFunctions;
+
+      const openPlay = {
+        friday: fridayEnabled === true,
+        weekend: weekendEnabled === true,
+        startHour: 18
+      };
+
+      // Find the existing facility settings document.
+      // This supports both the original fixed ID (settings/facility)
+      // and a fallback document created by this feature.
+      const settingsCollection = collection(window.db, 'settings');
+      const snapshot = await getDocs(settingsCollection);
+      const facilityDoc = snapshot.docs.find(document =>
+        document.id === 'facility' || document.data()?.settingsKey === 'facility'
+      );
+
+      if (facilityDoc) {
+        await updateDoc(
+          doc(window.db, 'settings', facilityDoc.id),
+          { openPlay }
+        );
+      } else {
+        // If settings/facility does not exist yet, create a settings record
+        // without requiring setDoc to be exposed by the HTML Firebase module.
+        await addDoc(settingsCollection, {
+          settingsKey: 'facility',
+          facilityStatus: 'open',
+          courts: {
+            'Court 1': 'open',
+            'Court 2': 'open'
+          },
+          openPlay
+        });
+      }
+    }
+
+    function styleOpenPlayToggle(button, enabled) {
+      button.dataset.enabled = enabled ? 'true' : 'false';
+      button.textContent = enabled ? 'ON' : 'OFF';
+      button.style.background = enabled ? '#16a34a' : '#64748b';
+      button.style.color = '#ffffff';
+      button.style.border = 'none';
+      button.style.borderRadius = '999px';
+      button.style.padding = '9px 18px';
+      button.style.minWidth = '72px';
+      button.style.fontWeight = '800';
+      button.style.cursor = 'pointer';
+      button.style.transition = '0.2s ease';
+    }
+
+    async function initOpenPlayAdminControls() {
+      const tbody = document.getElementById('bookingsTableBody');
+      if (!tbody || document.getElementById('openPlayAdminPanel')) return;
+
+      const table = tbody.closest('table');
+      const host = table?.parentElement || tbody.parentElement;
+      if (!host) return;
+
+      const panel = document.createElement('div');
+      panel.id = 'openPlayAdminPanel';
+      panel.style.cssText = `
+        margin: 0 0 22px 0;
+        padding: 20px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      `;
+
+      panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
+          <div>
+            <h3 style="margin:0 0 5px 0;color:#4c1d95;">Open Play Settings</h3>
+            <p style="margin:0;color:#64748b;font-size:14px;">
+              When enabled, both courts are reserved for Open Play from 6:00 PM onwards.
+              The last customer booking block is 5:00 PM–6:00 PM.
+            </p>
+          </div>
+          <span style="font-size:12px;font-weight:700;background:#f3e8ff;color:#6b21a8;padding:6px 10px;border-radius:999px;">Both Courts</span>
+        </div>
+
+        <div style="display:grid;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px;border:1px solid #ede9fe;border-radius:10px;">
+            <div>
+              <strong style="display:block;color:#1f2937;">Friday Open Play</strong>
+              <small style="color:#64748b;">Friday · 6:00 PM onwards</small>
+            </div>
+            <button type="button" id="fridayOpenPlayToggle">OFF</button>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px;border:1px solid #ede9fe;border-radius:10px;">
+            <div>
+              <strong style="display:block;color:#1f2937;">Saturday & Sunday Open Play</strong>
+              <small style="color:#64748b;">Saturday + Sunday · 6:00 PM onwards</small>
+            </div>
+            <button type="button" id="weekendOpenPlayToggle">OFF</button>
+          </div>
+        </div>
+
+        <div id="openPlaySaveStatus" style="margin-top:12px;font-size:13px;color:#64748b;"></div>
+      `;
+
+      if (table) {
+        host.insertBefore(panel, table);
+      } else {
+        host.insertBefore(panel, host.firstChild);
+      }
+
+      const fridayBtn = document.getElementById('fridayOpenPlayToggle');
+      const weekendBtn = document.getElementById('weekendOpenPlayToggle');
+      const statusEl = document.getElementById('openPlaySaveStatus');
+
+      const settings = await getFacilitySettingsFromFirestore();
+      styleOpenPlayToggle(fridayBtn, settings.openPlay?.friday === true);
+      styleOpenPlayToggle(weekendBtn, settings.openPlay?.weekend === true);
+
+      async function saveFromButtons(changedButton) {
+        const previousValue = changedButton.dataset.enabled === 'true';
+        const newValue = !previousValue;
+
+        styleOpenPlayToggle(changedButton, newValue);
+        fridayBtn.disabled = true;
+        weekendBtn.disabled = true;
+        statusEl.textContent = 'Saving Open Play settings...';
+
+        try {
+          await saveOpenPlaySettings(
+            fridayBtn.dataset.enabled === 'true',
+            weekendBtn.dataset.enabled === 'true'
+          );
+
+          statusEl.textContent = 'Open Play settings saved successfully.';
+          statusEl.style.color = '#15803d';
+        } catch (error) {
+          console.error('Error saving Open Play settings:', error);
+          styleOpenPlayToggle(changedButton, previousValue);
+          statusEl.textContent = 'Could not save Open Play settings. Check Firebase permissions/settings document.';
+          statusEl.style.color = '#b91c1c';
+        } finally {
+          fridayBtn.disabled = false;
+          weekendBtn.disabled = false;
+        }
+      }
+
+      fridayBtn.addEventListener('click', () => saveFromButtons(fridayBtn));
+      weekendBtn.addEventListener('click', () => saveFromButtons(weekendBtn));
+    }
+
     // Check if we're on the admin page
     if (document.getElementById('bookingsTableBody')) {
       initAdminDashboard();
@@ -1379,6 +1620,7 @@
     function initAdminDashboard() {
       // Load data immediately
       loadAdminData();
+      initOpenPlayAdminControls();
       
       // Filter buttons
       const applyBtn = document.getElementById('applyFiltersBtn');
