@@ -1,2638 +1,2555 @@
-// ==========================================
-// FIREBASE DATABASE FUNCTIONS (BULLETPROOF)
-// ==========================================
+    // ==========================================
+    // FIREBASE DATABASE FUNCTIONS (BULLETPROOF)
+    // ==========================================
 
-// Helper to wait for Firebase module to finish loading
-function waitForFirebase() {
-  return new Promise((resolve) => {
-    let checks = 0;
-    const interval = setInterval(() => {
-      if (window.db || checks > 30) { // Wait up to 3 seconds
-        clearInterval(interval);
-        resolve();
+    // Helper to wait for Firebase module to finish loading
+    function waitForFirebase() {
+      return new Promise((resolve) => {
+        let checks = 0;
+        const interval = setInterval(() => {
+          if (window.db || checks > 30) { // Wait up to 3 seconds
+            clearInterval(interval);
+            resolve();
+          }
+          checks++;
+        }, 100);
+      });
+    }
+
+    async function getBookings() {
+      await waitForFirebase(); // ⏳ Wait for Firebase to be ready
+      if (!window.db) {
+        console.error("Firebase failed to load!");
+        return []; 
       }
-      checks++;
-    }, 100);
-  });
-}
-
-async function getBookings() {
-  await waitForFirebase(); // ⏳ Wait for Firebase to be ready
-  if (!window.db) {
-    console.error("Firebase failed to load!");
-    return []; 
-  }
-  
-  const { collection, getDocs } = window.firebaseFunctions;
-  try {
-    // Fetch all bookings (Removed orderBy to prevent silent query errors)
-    const querySnapshot = await getDocs(collection(window.db, "bookings"));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error("Error fetching from Firebase:", error);
-    return [];
-  }
-}
-
-async function addBooking(bookingDataArray) {
-  await waitForFirebase();
-
-  if (!window.db) {
-    throw new Error("Firebase failed to load");
-  }
-
-  const {
-    collection,
-    doc,
-    writeBatch
-  } = window.firebaseFunctions;
-
-  if (!writeBatch) {
-    throw new Error("Firestore writeBatch is not available");
-  }
-
-  const batch = writeBatch(window.db);
-  const bookingsCollection = collection(window.db, "bookings");
-
-  bookingDataArray.forEach(data => {
-    const newBookingRef = doc(bookingsCollection);
-    batch.set(newBookingRef, data);
-  });
-
-  await batch.commit();
-}
-
-async function updateBookingStatus(bookingId, newStatus) {
-  await waitForFirebase(); // ⏳ Wait for Firebase to be ready
-  if (!window.db) return;
-
-  const { collection, getDocs, query, where, updateDoc, doc } = window.firebaseFunctions;
-  const q = query(collection(window.db, "bookings"), where("bookingId", "==", bookingId));
-  const querySnapshot = await getDocs(q);
-  const promises = querySnapshot.docs.map(document => 
-    updateDoc(doc(window.db, "bookings", document.id), { status: newStatus })
-  );
-  await Promise.all(promises);
-}
-
-// ==========================================
-// CONSTANTS
-// ==========================================
-const TIME_SLOTS = [
-  "06:00", "07:00", "08:00", "09:00", 
-  "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"
-];
-const COURTS = ['Court 1', 'Court 2'];
-let currentFilter = 'am';
-
-let currentPage = 1;
-const itemsPerPage = 7;
-// Global variables for add-on quantities
-let paddleQty = 0;
-let ballQty = 0;
-
-// ==========================================
-// HELPER FUNCTIONS
-// ==========================================
-let currentWeekOffset = 0;
-
-
-function validateOpenPlayRestriction(court, startTimeStr, duration) {
-  if (!court || !startTimeStr || !duration) {
-    return {
-      allowed: false,
-      message: 'Please select a valid court, time, and duration.'
-    };
-  }
-
-  const startHour = parseInt(startTimeStr.split(':')[0], 10);
-  const endHour = startHour + duration;
-
-  // Court 1: Open Play starts at 8:00 PM
-  if (court === 'Court 1' && endHour > 20) {
-    return {
-      allowed: false,
-      message:
-        'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
-        'Your booking would extend into the Open Play period.\n' +
-        'Please select a shorter duration or an earlier time.'
-    };
-  }
-
-  // Court 2: Open Play starts at 5:00 PM
-  if (court === 'Court 2' && endHour > 17) {
-    return {
-      allowed: false,
-      message:
-        'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
-        'Your booking would extend into the Open Play period.\n' +
-        'Please select a shorter duration or an earlier time.'
-    };
-  }
-
-  return {
-    allowed: true,
-    endHour: endHour
-  };
-}
-// ==========================================
-// WEEK NAVIGATION BUTTONS
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-
-  const prevWeekBtn = document.getElementById('prevWeekBtn');
-  const nextWeekBtn = document.getElementById('nextWeekBtn');
-  const weekCurrentLabel = document.getElementById('weekCurrentLabel');
-
-  function updateWeekNavigation() {
-
-    // Disable previous week when already on current week
-    if (prevWeekBtn) {
-      prevWeekBtn.disabled = currentWeekOffset <= 0;
+      
+      const { collection, getDocs } = window.firebaseFunctions;
+      try {
+        // Fetch all bookings (Removed orderBy to prevent silent query errors)
+        const querySnapshot = await getDocs(collection(window.db, "bookings"));
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (error) {
+        console.error("Error fetching from Firebase:", error);
+        return [];
+      }
     }
 
-    // Update week label
-    if (weekCurrentLabel) {
-      const dates = getWeekDates();
+    async function addBooking(bookingDataArray) {
+      await waitForFirebase();
 
-      const firstDate = dates[0].dateObj;
-      const lastDate = dates[6].dateObj;
+      if (!window.db) {
+        throw new Error("Firebase failed to load");
+      }
 
-      const options = {
-        month: 'short',
-        day: 'numeric'
-      };
+      const {
+        collection,
+        doc,
+        writeBatch
+      } = window.firebaseFunctions;
 
-      weekCurrentLabel.textContent =
-        `${firstDate.toLocaleDateString('en-US', options)} - ` +
-        `${lastDate.toLocaleDateString('en-US', options)}`;
+      if (!writeBatch) {
+        throw new Error("Firestore writeBatch is not available");
+      }
+
+      const batch = writeBatch(window.db);
+      const bookingsCollection = collection(window.db, "bookings");
+
+      bookingDataArray.forEach(data => {
+        const newBookingRef = doc(bookingsCollection);
+        batch.set(newBookingRef, data);
+      });
+
+      await batch.commit();
     }
-  }
 
-// PREVIOUS WEEK
-if (prevWeekBtn) {
-  prevWeekBtn.addEventListener('click', async () => {
+    async function updateBookingStatus(bookingId, newStatus) {
+      await waitForFirebase(); // ⏳ Wait for Firebase to be ready
+      if (!window.db) return;
 
-    if (currentWeekOffset > 0) {
-      currentWeekOffset--;
-
-      console.log('⬅️ Week offset:', currentWeekOffset);
-      console.log(
-        '⬅️ Week dates:',
-        getWeekDates().map(d => d.dateStr)
+      const { collection, getDocs, query, where, updateDoc, doc } = window.firebaseFunctions;
+      const q = query(collection(window.db, "bookings"), where("bookingId", "==", bookingId));
+      const querySnapshot = await getDocs(q);
+      const promises = querySnapshot.docs.map(document => 
+        updateDoc(doc(window.db, "bookings", document.id), { status: newStatus })
       );
-
-      await renderCalendar();
-      await window.renderMobileSchedule();
-
-      updateWeekNavigation();
+      await Promise.all(promises);
     }
 
-  });
-}
+    // ==========================================
+    // CONSTANTS
+    // ==========================================
+    const TIME_SLOTS = [
+      "06:00", "07:00", "08:00", "09:00", 
+      "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"
+    ];
+    const COURTS = ['Court 1', 'Court 2'];
+    let currentFilter = 'am';
 
-// NEXT WEEK
-if (nextWeekBtn) {
-  nextWeekBtn.addEventListener('click', async () => {
+    let currentPage = 1;
+    const itemsPerPage = 7;
+    // Global variables for add-on quantities
+    let paddleQty = 0;
+    let ballQty = 0;
 
-    currentWeekOffset++;
-
-    console.log('➡️ Week offset:', currentWeekOffset);
-    console.log(
-      '➡️ Week dates:',
-      getWeekDates().map(d => d.dateStr)
-    );
-
-    await renderCalendar();
-    await window.renderMobileSchedule();
-
-    updateWeekNavigation();
-  });
-}
-
-updateWeekNavigation();
-
-});
-
-function getWeekDates() {
-  const dates = [];
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Start from Sunday of the current week
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - today.getDay());
-
-  // Move to selected week
-  sunday.setDate(sunday.getDate() + (currentWeekOffset * 7));
-
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(sunday);
-    day.setDate(sunday.getDate() + i);
-
-    dates.push({
-      dateObj: new Date(day),
-
-      dateStr:
-        day.getFullYear() + '-' +
-        String(day.getMonth() + 1).padStart(2, '0') + '-' +
-        String(day.getDate()).padStart(2, '0'),
-
-      dayName: day
-        .toLocaleDateString('en-US', { weekday: 'short' })
-        .toUpperCase(),
-
-      dayNum: day.getDate(),
-
-      isToday:
-        day.toDateString() === today.toDateString(),
-
-      isPast: day < today
-    });
-  }
-
-  return dates;
-}
+    // ==========================================
+    // HELPER FUNCTIONS
+    // ==========================================
+    let currentWeekOffset = 0;
 
 
-function formatTime12(time24) {
-  const [hours] = time24.split(':');
-  const h = parseInt(hours);
-  const ampm = h >= 12 ? 'pm' : 'am';
-  const h12 = h % 12 || 12;
-  return `${h12}:00 ${ampm}`;
-}
+    function validateOpenPlayRestriction(court, startTimeStr, duration) {
+      if (!court || !startTimeStr || !duration) {
+        return {
+          allowed: false,
+          message: 'Please select a valid court, time, and duration.'
+        };
+      }
 
+      const startHour = parseInt(startTimeStr.split(':')[0], 10);
+      const endHour = startHour + duration;
 
-function isSlotInPast(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return false;
+      // Court 1: Open Play starts at 8:00 PM
+      if (court === 'Court 1' && endHour > 20) {
+        return {
+          allowed: false,
+          message:
+            'Court 1 is reserved for Open Play starting at 8:00 PM.\n\n' +
+            'Your booking would extend into the Open Play period.\n' +
+            'Please select a shorter duration or an earlier time.'
+        };
+      }
 
-  const now = new Date();
-  const slotDate = new Date(`${dateStr}T${timeStr}:00`);
+      // Court 2: Open Play starts at 5:00 PM
+      if (court === 'Court 2' && endHour > 17) {
+        return {
+          allowed: false,
+          message:
+            'Court 2 is reserved for Open Play starting at 5:00 PM.\n\n' +
+            'Your booking would extend into the Open Play period.\n' +
+            'Please select a shorter duration or an earlier time.'
+        };
+      }
 
-  return slotDate < now;
-}
+      return {
+        allowed: true,
+        endHour: endHour
+      };
+    }
+    // ==========================================
+    // WEEK NAVIGATION BUTTONS
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
 
+      const prevWeekBtn = document.getElementById('prevWeekBtn');
+      const nextWeekBtn = document.getElementById('nextWeekBtn');
+      const weekCurrentLabel = document.getElementById('weekCurrentLabel');
 
-function getFilteredTimeSlots() {
-  if (currentFilter === 'am') {
-    return TIME_SLOTS.filter(t => parseInt(t) < 12);
-  }
+      function updateWeekNavigation() {
 
-  if (currentFilter === 'pm') {
-    return TIME_SLOTS.filter(t => parseInt(t) >= 12);
-  }
+        // Disable previous week when already on current week
+        if (prevWeekBtn) {
+          prevWeekBtn.disabled = currentWeekOffset <= 0;
+        }
 
-  return TIME_SLOTS;
-}
+        // Update week label
+        if (weekCurrentLabel) {
+          const dates = getWeekDates();
 
-// Form calculator for the Customer Booking Page (Safe for Admin Page too)
-function updateFormTotal() {
-  // 1. Check if we are actually on the booking page
-  const durationEl = document.getElementById('bookingDuration');
-  const hiddenTimeEl = document.getElementById('hiddenTime');
-  
-  // If these don't exist (like on the admin page), stop running this function!
-  if (!durationEl || !hiddenTimeEl) return; 
+          const firstDate = dates[0].dateObj;
+          const lastDate = dates[6].dateObj;
 
-  const paddleQtyEl = document.getElementById('paddleQty');
-  const ballQtyEl = document.getElementById('ballQty');
-  const addonsDisplay = document.getElementById('addonsPriceDisplay');
-  const totalDisplay = document.getElementById('grandTotalDisplay');
+          const options = {
+            month: 'short',
+            day: 'numeric'
+          };
 
-  const duration = parseInt(durationEl.value) || 1;
-  const paddleQty = parseInt(paddleQtyEl ? paddleQtyEl.textContent : 0) || 0;
-  const ballQty = parseInt(ballQtyEl ? ballQtyEl.textContent : 0) || 0;
-  const selectedTime = hiddenTimeEl.value;
-
-  let courtPrice = 0;
-  if (selectedTime) {
-    const hourlyRate = isAM(selectedTime) ? RATE_AM : RATE_PM;
-    courtPrice = hourlyRate * duration;
-  }
-
-  const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-  const total = courtPrice + addonsPrice;
-
-  if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
-  if (totalDisplay) totalDisplay.textContent = `₱${total}`;
-}
-// ==========================================
-// CALENDAR RENDERING
-// ==========================================
-async function renderCalendar() {
-  const grid = document.getElementById('calendarGrid');
-  if (!grid) return;
-
-  const weekDates = getWeekDates();
-  const db = await getBookings();
-  const filteredTimes = getFilteredTimeSlots();
-
-  const settings = await getFacilitySettingsFromFirestore();
-
-  const {
-    collection,
-    getDocs
-  } = window.firebaseFunctions;
-
-  const closuresSnapshot = await getDocs(
-    collection(window.db, 'scheduledClosures')
-  );
-
-  const closures = closuresSnapshot.docs.map(document => ({
-    id: document.id,
-    ...document.data()
-  }));
-
-  let html = '<div class="calendar-cell calendar-header"></div>';
-  
-  weekDates.forEach(day => {
-    html += `<div class="calendar-cell calendar-header ${day.isToday ? 'today' : ''}">
-      <span class="day-name">${day.dayName}</span>
-      <span class="day-num">${day.dayNum}</span>
-    </div>`;
-  });
-
-  for (const time of filteredTimes) {
-    html += `<div class="calendar-cell time-label">${formatTime12(time)}</div>`;
-    
-    for (const day of weekDates) {
-      let cellClass = 'calendar-cell slot-cell';
-      if (day.isPast) cellClass += ' past';
-      
-      html += `<div class="${cellClass}">`;
-      
-      for (const court of COURTS) {
-        if (day.isPast) {
-          html += `<div class="court-status">
-            <span class="court-name">${court}</span>
-            <span class="status-text past">Past</span>
-          </div>`;
-                       } else {
-          // Find the specific booking object for this exact slot
-          const booking = db.find(b => 
-            b.date === day.dateStr && 
-            b.court === court && 
-            b.time === time && 
-            b.status !== 'cancelled'
-          );
-          
-                    // Smart Duration Calculation:
-          // If the booking exists, check its saved duration. If not saved, calculate it dynamically.
-          let duration = booking ? (booking.duration || 1) : 1;
-          
-          if (booking && !booking.duration) {
-            let nextHour = parseInt(time.split(':')[0]) + 1;
-            while (db.some(b => 
-              b.date === day.dateStr && 
-              b.court === court && 
-              b.time === `${nextHour.toString().padStart(2, '0')}:00` && 
-              b.status !== 'cancelled' && 
-              b.bookingId === booking.bookingId
-            )) {
-              duration++;
-              nextHour++;
-            }
-          }
-
-         
-          const courtStatus = settings.courts[court] || 'open';
-          
-// Check for date-specific closures
-const scheduledClosure = closures.find(c =>
-  c.date === day.dateStr &&
-  (
-    c.court === court ||
-    c.court === 'All'
-  )
-);
-
-          let statusClass = 'open';
-          let statusText = 'Open';
-          let clickAction = `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`;
-
-          // 0. Check if the specific time slot has already passed today
-          if (isSlotInPast(day.dateStr, time)) {
-            statusClass = 'past';
-            statusText = 'Past';
-            clickAction = '';
-          }
-
-       
-
-// 1. Check Scheduled Date Closure (Highest Priority)
-if (scheduledClosure) {
-  statusClass = scheduledClosure.reason === 'tournament'
-    ? 'tournament'
-    : 'maintenance';
-
-  statusText = scheduledClosure.reason === 'tournament'
-    ? 'Event'
-    : 'Maint.';
-
-  clickAction = '';
-}
-
-// 2. Check General Court Status
-else if (courtStatus === 'maintenance') {
-  statusClass = 'maintenance';
-  statusText = 'Maint.';
-  clickAction = '';
-}
-
-else if (courtStatus === 'tournament') {
-  statusClass = 'tournament';
-  statusText = 'Event';
-  clickAction = '';
-}
-
-// 3. Check Open Play Schedule
-else if (
-  (court === 'Court 1' && parseInt(time.split(':')[0]) >= 20) ||
-  (court === 'Court 2' && parseInt(time.split(':')[0]) >= 17)
-) {
-  statusClass = 'open-play';
-  statusText = 'Open Play';
-  clickAction = '';
-}
-
-// 4. Check Bookings
-else if (booking) {
-  if (booking.status === 'confirmed') {
-    statusClass = 'booked';
-    statusText = 'Booked';
-    clickAction = '';
-  } 
-  else if (booking.status === 'pending') {
-    statusClass = 'pending';
-    statusText = 'Pending';
-    clickAction = '';
-  }
-}
-          
-          html += `<div class="court-status">
-            <span class="court-name">${court}</span>
-            <span class="status-text ${statusClass}" ${clickAction}>${statusText}</span>
-          </div>`;
+          weekCurrentLabel.textContent =
+            `${firstDate.toLocaleDateString('en-US', options)} - ` +
+            `${lastDate.toLocaleDateString('en-US', options)}`;
         }
       }
-      html += `</div>`;
+
+    // PREVIOUS WEEK
+    if (prevWeekBtn) {
+      prevWeekBtn.addEventListener('click', async () => {
+
+        if (currentWeekOffset > 0) {
+          currentWeekOffset--;
+
+          console.log('⬅️ Week offset:', currentWeekOffset);
+          console.log(
+            '⬅️ Week dates:',
+            getWeekDates().map(d => d.dateStr)
+          );
+
+          await renderCalendar();
+          await window.renderMobileSchedule();
+
+          updateWeekNavigation();
+        }
+
+      });
     }
-  }
-  
-  grid.innerHTML = html;
-}
 
-function selectSlot(date, time, court) {
-  document.getElementById('hiddenDate').value = date;
-  document.getElementById('hiddenTime').value = time;
-  document.getElementById('hiddenCourt').value = court;
-  document.getElementById('selectedSlotDisplay').value = `${date} | ${formatTime12(time)} | ${court}`;
-  document.querySelector('.booking-form-section').scrollIntoView({ behavior: 'smooth' });
-  
-  const clearSlotBtn = document.getElementById('clearSlotBtn');
-  if (clearSlotBtn) clearSlotBtn.disabled = false;
+    // NEXT WEEK
+    if (nextWeekBtn) {
+      nextWeekBtn.addEventListener('click', async () => {
 
-  // 🌟 ADD THIS LINE: Recalculate the total now that a slot is selected!
-  updateFormTotal();
-}
+        currentWeekOffset++;
 
-// ==========================================
-// INITIALIZATION & EVENT LISTENERS
-// ==========================================
-
-  // Add this inside DOMContentLoaded, near the other event listeners
-  const durationSelect = document.getElementById('bookingDuration');
-  if (durationSelect) {
-    durationSelect.addEventListener('change', updateFormTotal);
-  }
-document.addEventListener('DOMContentLoaded', () => {
-    renderCalendar();
-  renderMobileSchedule(); // Initialize mobile view
-  
-  // Only calculate form totals if we are on the booking page
-  if (document.getElementById('bookingDuration')) {
-    updateFormTotal();
-  }
-  
-  // AM/PM Filter Button Logic
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      currentFilter = e.target.dataset.filter;
-      renderCalendar();
-        // Also render mobile view
-  renderMobileSchedule();
-    });
-  });
-
-  
-
-  // ==========================================
-// MOBILE SCHEDULE LIST RENDERING
-// ==========================================
-
-// ==========================================
-// MOBILE SCHEDULE LIST RENDERING
-// ==========================================
-
-async function renderMobileSchedule() {
-  const listContainer = document.getElementById('mobileScheduleList');
-  if (!listContainer) return;
-
-  const weekDates = getWeekDates();
-
-  console.log(
-    '📱 MOBILE RENDER:',
-    weekDates.map(d => d.dateStr)
-  );
-
-  const db = await getBookings();
-  const filteredTimes = getFilteredTimeSlots();
-
- const facilitySettings = await getFacilitySettingsFromFirestore();
-
-const {
-  collection,
-  getDocs
-} = window.firebaseFunctions;
-
-const closuresSnapshot = await getDocs(
-  collection(window.db, 'scheduledClosures')
-);
-
-const scheduledClosures = closuresSnapshot.docs.map(document => ({
-  id: document.id,
-  ...document.data()
-}));
-
-  let html = '';
-
-  weekDates.forEach(day => {
-    html += `<div class="mobile-day-group">
-      <div class="mobile-day-header ${day.isToday ? 'today' : ''}">
-        <span class="day-name">${day.dayName}</span>
-        <span class="day-num">${day.dayNum}</span>
-      </div>
-      <div class="mobile-day-slots">`;
-
-    filteredTimes.forEach(time => {
-      html += `<div class="mobile-time-slot">
-        <div class="mobile-time-label">${formatTime12(time)}</div>
-        <div class="mobile-court-slots">`;
-
-      COURTS.forEach(court => {
-
-        // 1. Past
-        if (isSlotInPast(day.dateStr, time)) {
-          html += `<div class="mobile-court-item">
-            <span class="mobile-court-name">${court}</span>
-            <span class="mobile-status past">Past</span>
-          </div>`;
-          return;
-        }
-
-        // 2. Scheduled closure
-       const scheduledClosure = scheduledClosures.find(c =>
-  c.date === day.dateStr &&
-  (
-    c.court === court ||
-    c.court === 'All'
-  )
-);
-
-        if (scheduledClosure) {
-          html += `<div class="mobile-court-item">
-            <span class="mobile-court-name">${court}</span>
-            <span class="mobile-status maintenance">
-              ${scheduledClosure.reason === 'tournament'
-  ? 'Tournament'
-  : scheduledClosure.reason === 'maintenance'
-  ? 'Maintenance'
-  : 'Closed'}
-            </span>
-          </div>`;
-          return;
-        }
-
-        // 3. Facility-wide closed
-        if (facilitySettings.facilityStatus === 'closed') {
-          html += `<div class="mobile-court-item">
-            <span class="mobile-court-name">${court}</span>
-            <span class="mobile-status maintenance">Closed</span>
-          </div>`;
-          return;
-        }
-
-        // 4. Individual court status
-        const courtStatus = facilitySettings.courts?.[court];
-
-        if (courtStatus && courtStatus !== 'open') {
-          let statusText = 'Closed';
-
-          if (courtStatus === 'maintenance') {
-            statusText = 'Maintenance';
-          } else if (courtStatus === 'event') {
-            statusText = 'Event';
-          } else if (courtStatus === 'tournament') {
-            statusText = 'Tournament';
-          }
-
-          html += `<div class="mobile-court-item">
-            <span class="mobile-court-name">${court}</span>
-            <span class="mobile-status maintenance">${statusText}</span>
-          </div>`;
-          return;
-        }
-
-        // 5. Existing booking
-        const booking = db.find(b =>
-          b.date === day.dateStr &&
-          b.court === court &&
-          b.time === time &&
-          b.status !== 'cancelled'
+        console.log('➡️ Week offset:', currentWeekOffset);
+        console.log(
+          '➡️ Week dates:',
+          getWeekDates().map(d => d.dateStr)
         );
 
-        const isBooked = !!booking;
+        await renderCalendar();
+        await window.renderMobileSchedule();
 
-        const hour = parseInt(time.split(':')[0]);
+        updateWeekNavigation();
+      });
+    }
 
-        let statusClass = 'open';
-        let statusText = 'Open';
-        let clickAction =
-          `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`
+    updateWeekNavigation();
 
-        // 6. Open Play
-        if (
-          (court === 'Court 1' && hour >= 20) ||
-          (court === 'Court 2' && hour >= 17)
-        ) {
-          statusClass = 'open-play';
-          statusText = 'Open Play';
-          clickAction = '';
-        }
+    });
 
-        // 7. Booked / Pending
-        else if (isBooked) {
-          statusClass =
-            booking.status === 'pending'
-              ? 'pending'
-              : 'booked';
+    function getWeekDates() {
+      const dates = [];
 
-          statusText =
-            booking.status === 'pending'
-              ? 'Pending'
-              : 'Booked';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-          clickAction = '';
-        }
+      // Start from Sunday of the current week
+      const sunday = new Date(today);
+      sunday.setDate(today.getDate() - today.getDay());
 
-        html += `<div class="mobile-court-item">
-          <span class="mobile-court-name">${court}</span>
-          <span class="mobile-status ${statusClass}" ${clickAction}>
-            ${statusText}
-          </span>
+      // Move to selected week
+      sunday.setDate(sunday.getDate() + (currentWeekOffset * 7));
+
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(sunday);
+        day.setDate(sunday.getDate() + i);
+
+        dates.push({
+          dateObj: new Date(day),
+
+          dateStr:
+            day.getFullYear() + '-' +
+            String(day.getMonth() + 1).padStart(2, '0') + '-' +
+            String(day.getDate()).padStart(2, '0'),
+
+          dayName: day
+            .toLocaleDateString('en-US', { weekday: 'short' })
+            .toUpperCase(),
+
+          dayNum: day.getDate(),
+
+          isToday:
+            day.toDateString() === today.toDateString(),
+
+          isPast: day < today
+        });
+      }
+
+      return dates;
+    }
+
+
+    function formatTime12(time24) {
+      const [hours] = time24.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'pm' : 'am';
+      const h12 = h % 12 || 12;
+      return `${h12}:00 ${ampm}`;
+    }
+
+
+    function isSlotInPast(dateStr, timeStr) {
+      if (!dateStr || !timeStr) return false;
+
+      const now = new Date();
+      const slotDate = new Date(`${dateStr}T${timeStr}:00`);
+
+      return slotDate < now;
+    }
+
+
+    function getFilteredTimeSlots() {
+      if (currentFilter === 'am') {
+        return TIME_SLOTS.filter(t => parseInt(t) < 12);
+      }
+
+      if (currentFilter === 'pm') {
+        return TIME_SLOTS.filter(t => parseInt(t) >= 12);
+      }
+
+      return TIME_SLOTS;
+    }
+
+    // Form calculator for the Customer Booking Page (Safe for Admin Page too)
+    function updateFormTotal() {
+      const durationEl = document.getElementById('bookingDuration');
+      const hiddenTimeEl = document.getElementById('hiddenTime');
+
+      if (!durationEl || !hiddenTimeEl) return;
+
+      const paddleQtyEl = document.getElementById('paddleQty');
+      const ballQtyEl = document.getElementById('ballQty');
+      const addonsDisplay = document.getElementById('addonsPriceDisplay');
+      const totalDisplay = document.getElementById('grandTotalDisplay');
+
+      const duration = parseInt(durationEl.value) || 1;
+      const paddleQty = parseInt(paddleQtyEl?.textContent) || 0;
+      const ballQty = parseInt(ballQtyEl?.textContent) || 0;
+      const selectedTime = hiddenTimeEl.value;
+
+      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
+
+      const total = selectedTime
+        ? calculateBookingTotal({
+            time: selectedTime,
+            duration,
+            addons: { paddle: paddleQty, ball: ballQty }
+          })
+        : addonsPrice;
+
+      if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
+      if (totalDisplay) totalDisplay.textContent = `₱${total}`;
+
+      const revTotal = document.getElementById('rev-total');
+      if (revTotal) revTotal.textContent = `₱${total}`;
+
+      return total;
+    }
+    // ==========================================
+    // CALENDAR RENDERING
+    // ==========================================
+    async function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      if (!grid) return;
+
+      const weekDates = getWeekDates();
+      const db = await getBookings();
+      const filteredTimes = getFilteredTimeSlots();
+
+      const settings = await getFacilitySettingsFromFirestore();
+
+      const {
+        collection,
+        getDocs
+      } = window.firebaseFunctions;
+
+      const closuresSnapshot = await getDocs(
+        collection(window.db, 'scheduledClosures')
+      );
+
+      const closures = closuresSnapshot.docs.map(document => ({
+        id: document.id,
+        ...document.data()
+      }));
+
+      let html = '<div class="calendar-cell calendar-header"></div>';
+      
+      weekDates.forEach(day => {
+        html += `<div class="calendar-cell calendar-header ${day.isToday ? 'today' : ''}">
+          <span class="day-name">${day.dayName}</span>
+          <span class="day-num">${day.dayNum}</span>
         </div>`;
       });
 
-      html += `</div></div>`;
-    });
-
-    html += `</div></div>`;
-  });
-
-  if (html === '') {
-    listContainer.innerHTML =
-      '<p style="text-align: center; color: var(--gray-500); padding: 2rem;">No available slots this week.</p>';
-  } else {
-    listContainer.innerHTML = html;
-  }
-}
-
-
-// Make the function available globally
-window.renderMobileSchedule = renderMobileSchedule;
-  // Add-on Quantity Logic
-  document.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const type = e.target.dataset.type;
-      const isPlus = e.target.classList.contains('plus');
-
-      if (type === 'paddle') {
-        if (isPlus) paddleQty++;
-        else if (paddleQty > 0) paddleQty--;
-        document.getElementById('paddleQty').textContent = paddleQty;
-      } else if (type === 'ball') {
-        if (isPlus) ballQty++;
-        else if (ballQty > 0) ballQty--;
-        document.getElementById('ballQty').textContent = ballQty;
-      }
-      updateFormTotal();
-    });
-  });
-
-  // Duration Dropdown Logic
-  const durationSelect = document.getElementById('bookingDuration');
-  if (durationSelect) {
-    durationSelect.addEventListener('change', updateFormTotal);
-  }
-
-      // Clear Slot Button Logic
-  const clearSlotBtn = document.getElementById('clearSlotBtn');
-  if (clearSlotBtn) {
-    clearSlotBtn.addEventListener('click', () => {
-      document.getElementById('selectedSlotDisplay').value = '';
-      document.getElementById('hiddenDate').value = '';
-      document.getElementById('hiddenTime').value = '';
-      document.getElementById('hiddenCourt').value = '';
-      clearSlotBtn.disabled = true;
-      
-      // Reset the total price to 0 when slot is cleared
-      updateFormTotal(); 
-      renderMobileSchedule(); // Refresh mobile view
-    });
-  }
-
-    // ==========================================
-  // STEP 1: SHOW REVIEW MODAL ON SUBMIT
-  // ==========================================
-  const bookingForm = document.getElementById('bookingForm');
-  if (bookingForm) {
-    bookingForm.addEventListener('submit', (e) => {
-      e.preventDefault(); // Stop it from saving immediately
-      
-      const date = document.getElementById('hiddenDate').value;
-      const startTimeStr = document.getElementById('hiddenTime').value; // 🌟 GRAB THE TIME
-      
-      if (!date || !startTimeStr) { 
-        alert('Please select a time slot from the calendar above.'); 
-        return; 
-      }
-
-      // Gather Data for Review
-      const name = document.getElementById('customerName').value;
-      const mobile = document.getElementById('customerMobile').value;
-      const email = document.getElementById('customerEmail').value;
-      const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
-
-// ==========================================
-// OPEN PLAY BOOKING RESTRICTIONS
-// ==========================================
-
-const selectedCourt = document.getElementById('hiddenCourt').value;
-const startHour = parseInt(startTimeStr.split(':')[0]);
-
-const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
-      const slotDisplay = document.getElementById('selectedSlotDisplay').value;
-      
-      const addonsText = [];
-      if (paddleQty > 0) addonsText.push(`${paddleQty}x Paddle (₱${paddleQty * 30})`);
-      if (ballQty > 0) addonsText.push(`${ballQty}x Ball (₱${ballQty * 100})`);
-      const addonsDisplay = addonsText.length > 0 ? addonsText.join(', ') : 'None';
-
-     let basePrice = 0;
-const pricingStartHour = parseInt(startTimeStr.split(':')[0]);
-
-for (let i = 0; i < duration; i++) {
-  const currentHour = pricingStartHour + i;
-  basePrice += currentHour < 12 ? RATE_AM : RATE_PM;
-}
-      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-      const totalAmount = basePrice + addonsPrice;
-
-      // Populate Review Modal
-      document.getElementById('rev-name').textContent = name;
-      document.getElementById('rev-mobile').textContent = mobile;
-      document.getElementById('rev-email').textContent = email;
-      document.getElementById('rev-slot').textContent = slotDisplay;
-      document.getElementById('rev-duration').textContent = `${duration} Hour(s)`;
-      document.getElementById('rev-addons').textContent = addonsDisplay;
-      document.getElementById('rev-payment').textContent = paymentMethod === 'gcash' ? 'GCash' : 'Pay on Venue';
-      document.getElementById('rev-total').textContent = `₱${totalAmount}`;
-
-      // Show the Modal
-      document.getElementById('reviewModal').classList.remove('hidden');
-    });
-  }
-
-    // ==========================================
-  // STEP 2: FINALIZE BOOKING (After Review)
-  // ==========================================
-  const finalizeBtn = document.getElementById('finalizeBookingBtn');
-  if (finalizeBtn) {
-    finalizeBtn.addEventListener('click', async () => {
-      // Re-grab the data
-      const date = document.getElementById('hiddenDate').value;
-      const startTimeStr = document.getElementById('hiddenTime').value;
-      const court = document.getElementById('hiddenCourt').value;
-      const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
-      const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
-
-      let basePrice = 0;
-const pricingStartHour = parseInt(startTimeStr.split(':')[0]);
-
-for (let i = 0; i < duration; i++) {
-  const currentHour = pricingStartHour + i;
-  basePrice += currentHour < 12 ? RATE_AM : RATE_PM;
-}
-      const addonsTotal = (paddleQty * 30) + (ballQty * 100);
-      const totalAmount = basePrice + addonsTotal; // 🌟 THE CORRECT TOTAL
-
- const openPlayCheck = validateOpenPlayRestriction(
-        court,
-        startTimeStr,
-        duration
-      );
-
-      if (!openPlayCheck.allowed) {
-        alert(openPlayCheck.message);
-        closeReviewModal();
-        return;
-      }
-
-      const db = await getBookings(); // ✅ Fetches from Firebase
-      const startHour = parseInt(startTimeStr.split(':')[0]);
-      let isAvailable = true;
-
-      // VALIDATION: Check if ALL requested hours are available
-      for (let i = 0; i < duration; i++) {
-        const checkHour = startHour + i;
-        const checkTimeStr = `${checkHour.toString().padStart(2, '0')}:00`;
+      for (const time of filteredTimes) {
+        html += `<div class="calendar-cell time-label">${formatTime12(time)}</div>`;
         
-        const isBooked = db.some(b => 
-          b.date === date && 
-          b.court === court && 
-          b.time === checkTimeStr && 
-          b.status !== 'cancelled'
-        );
+        for (const day of weekDates) {
+          let cellClass = 'calendar-cell slot-cell';
+          if (day.isPast) cellClass += ' past';
+          
+          html += `<div class="${cellClass}">`;
+          
+          for (const court of COURTS) {
+            if (day.isPast) {
+              html += `<div class="court-status">
+                <span class="court-name">${court}</span>
+                <span class="status-text past">Past</span>
+              </div>`;
+                           } else {
+              // Find the specific booking object for this exact slot
+              const booking = db.find(b => 
+                b.date === day.dateStr && 
+                b.court === court && 
+                b.time === time && 
+                b.status !== 'cancelled'
+              );
+              
+                        // Smart Duration Calculation:
+              // If the booking exists, check its saved duration. If not saved, calculate it dynamically.
+              let duration = booking ? (booking.duration || 1) : 1;
+              
+              if (booking && !booking.duration) {
+                let nextHour = parseInt(time.split(':')[0]) + 1;
+                while (db.some(b => 
+                  b.date === day.dateStr && 
+                  b.court === court && 
+                  b.time === `${nextHour.toString().padStart(2, '0')}:00` && 
+                  b.status !== 'cancelled' && 
+                  b.bookingId === booking.bookingId
+                )) {
+                  duration++;
+                  nextHour++;
+                }
+              }
 
-        if (isBooked) {
-          isAvailable = false;
-          break;
-        }
-      }
+             
+              const courtStatus = settings.courts[court] || 'open';
+              
+    // Check for date-specific closures
+    const scheduledClosure = closures.find(c =>
+      c.date === day.dateStr &&
+      (
+        c.court === court ||
+        c.court === 'All'
+      )
+    );
 
-      if (!isAvailable) {
-        alert(`Sorry, the court is no longer available for ${duration} hour(s). Another booking overlaps with this time.`);
-        closeReviewModal();
-        return;
-      }
+              let statusClass = 'open';
+              let statusText = 'Open';
+              let clickAction = `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`;
 
-      // SAVE BOOKINGS
-      const bookingId =
-  'HIRAYA-' +
-  Date.now().toString().slice(-6) +
-  '-' +
-  Math.random().toString(36).substring(2, 6).toUpperCase();
-      const status = 'pending'; 
-      const bookingsToSave = [];
+              // 0. Check if the specific time slot has already passed today
+              if (isSlotInPast(day.dateStr, time)) {
+                statusClass = 'past';
+                statusText = 'Past';
+                clickAction = '';
+              }
 
-      for (let i = 0; i < duration; i++) {
-        const currentHour = startHour + i;
-        const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:00`;
+           
 
-       bookingsToSave.push({
-  bookingId: bookingId,
-  date: date,
-  time: currentTimeStr,
-  court: court,
-  name: document.getElementById('customerName').value,
-  mobile: document.getElementById('customerMobile').value,
-  email: document.getElementById('customerEmail').value,
-  payment: paymentMethod,
-  addons: { paddle: paddleQty, ball: ballQty },
-  duration: duration,
-  status: status,
-  totalAmount: totalAmount,
-  createdAt: Date.now()
-});
-      }
-      
-      await addBooking(bookingsToSave); // Saves to the cloud!
+    // 1. Check Scheduled Date Closure (Highest Priority)
+    if (scheduledClosure) {
+      statusClass = scheduledClosure.reason === 'tournament'
+        ? 'tournament'
+        : 'maintenance';
 
-      // Trigger Admin Email
-      notifyAdminOfNewBooking({
-        id: bookingId,
-        date: date,
-        time: startTimeStr,
-        court: court,
-        duration: duration,
-        name: document.getElementById('customerName').value,
-        email: document.getElementById('customerEmail').value,
-        mobile: document.getElementById('customerMobile').value,
-        payment: paymentMethod,
-        addons: { paddle: paddleQty, ball: ballQty },
-        totalAmount: totalAmount, // 🌟 ADDED: So the admin email shows the correct price!
-        status: status
-      });
-      
-      // Close Review Modal
-      closeReviewModal();
-      
-      // Show the beautiful Success Modal
-      const customerEmail = document.getElementById('customerEmail').value;
-      openSuccessModal(customerEmail);
-      
-      // Handle GCash Modal if needed
-      if (paymentMethod === 'gcash') {
-        const reference = 'HIRAYA-' + Math.floor(Math.random() * 100000);
-        
-        setTimeout(() => {
-          // 🌟 FIX: Use the dynamically calculated totalAmount, not hardcoded 300
-          openGcashModal(totalAmount, reference);
-        }, 500);
-      }
-      
-      // Reset Form & UI
-      bookingForm.reset();
-      document.getElementById('selectedSlotDisplay').value = '';
-      document.getElementById('hiddenDate').value = '';
-      document.getElementById('hiddenTime').value = '';
-      document.getElementById('hiddenCourt').value = '';
-      const clearSlotBtn = document.getElementById('clearSlotBtn');
-      if (clearSlotBtn) clearSlotBtn.disabled = true;
+      statusText = scheduledClosure.reason === 'tournament'
+        ? 'Event'
+        : 'Maint.';
 
-      paddleQty = 0;
-      ballQty = 0;
-      document.getElementById('paddleQty').textContent = '0';
-      document.getElementById('ballQty').textContent = '0';
-      updateFormTotal();
-      renderCalendar();
-      renderMobileSchedule(); // Update mobile view after booking
-    });
-  }
-
-  // Lookup Logic (Multi-Hour Support)
-const lookupBtn = document.getElementById('lookupBtn');
-const lookupInput = document.getElementById('lookupInput');
-const lookupResult = document.getElementById('lookupResult');
-
-if (lookupBtn && lookupInput && lookupResult) {
-  lookupBtn.addEventListener('click', async () => {
-    const query = lookupInput.value.trim();
-
-    if (!query) {
-      alert('Please enter a Booking ID or Phone Number');
-      return;
+      clickAction = '';
     }
 
-    const db = await getBookings();
-    const queryNumbersOnly = query.replace(/\D/g, '');
+    // 2. Check General Court Status
+    else if (courtStatus === 'maintenance') {
+      statusClass = 'maintenance';
+      statusText = 'Maint.';
+      clickAction = '';
+    }
 
-    // Get all ACTIVE records matching Booking ID or Phone Number
-    const activeMatches = db.filter(b => {
-      if (!b || b.status === 'cancelled') return false;
+    else if (courtStatus === 'tournament') {
+      statusClass = 'tournament';
+      statusText = 'Event';
+      clickAction = '';
+    }
 
-      const matchId = b.bookingId === query;
-      const matchMobile = b.mobile === query;
+    // 3. Check Open Play Schedule
+    else if (
+      (court === 'Court 1' && parseInt(time.split(':')[0]) >= 20) ||
+      (court === 'Court 2' && parseInt(time.split(':')[0]) >= 17)
+    ) {
+      statusClass = 'open-play';
+      statusText = 'Open Play';
+      clickAction = '';
+    }
 
-      const matchMobileNumbersOnly =
-        b.mobile &&
-        b.mobile.replace(/\D/g, '') === queryNumbersOnly;
+    // 4. Check Bookings
+    else if (booking) {
+      if (booking.status === 'confirmed') {
+        statusClass = 'booked';
+        statusText = 'Booked';
+        clickAction = '';
+      } 
+      else if (booking.status === 'pending') {
+        statusClass = 'pending';
+        statusText = 'Pending';
+        clickAction = '';
+      }
+    }
+              
+              html += `<div class="court-status">
+                <span class="court-name">${court}</span>
+                <span class="status-text ${statusClass}" ${clickAction}>${statusText}</span>
+              </div>`;
+            }
+          }
+          html += `</div>`;
+        }
+      }
+      
+      grid.innerHTML = html;
+    }
 
-      return matchId || matchMobile || matchMobileNumbersOnly;
+    function selectSlot(date, time, court) {
+      document.getElementById('hiddenDate').value = date;
+      document.getElementById('hiddenTime').value = time;
+      document.getElementById('hiddenCourt').value = court;
+      document.getElementById('selectedSlotDisplay').value = `${date} | ${formatTime12(time)} | ${court}`;
+      document.querySelector('.booking-form-section').scrollIntoView({ behavior: 'smooth' });
+      
+      const clearSlotBtn = document.getElementById('clearSlotBtn');
+      if (clearSlotBtn) clearSlotBtn.disabled = false;
+
+      // 🌟 ADD THIS LINE: Recalculate the total now that a slot is selected!
+      updateFormTotal();
+    }
+
+    // ==========================================
+    // INITIALIZATION & EVENT LISTENERS
+    // ==========================================
+
+      // Add this inside DOMContentLoaded, near the other event listeners
+      const durationSelect = document.getElementById('bookingDuration');
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateFormTotal);
+      }
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCalendar();
+      renderMobileSchedule(); // Initialize mobile view
+      
+      // Only calculate form totals if we are on the booking page
+      if (document.getElementById('bookingDuration')) {
+        updateFormTotal();
+      }
+      
+      // AM/PM Filter Button Logic
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          currentFilter = e.target.dataset.filter;
+          renderCalendar();
+            // Also render mobile view
+      renderMobileSchedule();
+        });
+      });
+
+      
+
+      // ==========================================
+    // MOBILE SCHEDULE LIST RENDERING
+    // ==========================================
+
+    // ==========================================
+    // MOBILE SCHEDULE LIST RENDERING
+    // ==========================================
+
+    async function renderMobileSchedule() {
+      const listContainer = document.getElementById('mobileScheduleList');
+      if (!listContainer) return;
+
+      const weekDates = getWeekDates();
+
+      console.log(
+        '📱 MOBILE RENDER:',
+        weekDates.map(d => d.dateStr)
+      );
+
+      const db = await getBookings();
+      const filteredTimes = getFilteredTimeSlots();
+
+     const facilitySettings = await getFacilitySettingsFromFirestore();
+
+    const {
+      collection,
+      getDocs
+    } = window.firebaseFunctions;
+
+    const closuresSnapshot = await getDocs(
+      collection(window.db, 'scheduledClosures')
+    );
+
+    const scheduledClosures = closuresSnapshot.docs.map(document => ({
+      id: document.id,
+      ...document.data()
+    }));
+
+      let html = '';
+
+      weekDates.forEach(day => {
+        html += `<div class="mobile-day-group">
+          <div class="mobile-day-header ${day.isToday ? 'today' : ''}">
+            <span class="day-name">${day.dayName}</span>
+            <span class="day-num">${day.dayNum}</span>
+          </div>
+          <div class="mobile-day-slots">`;
+
+        filteredTimes.forEach(time => {
+          html += `<div class="mobile-time-slot">
+            <div class="mobile-time-label">${formatTime12(time)}</div>
+            <div class="mobile-court-slots">`;
+
+          COURTS.forEach(court => {
+
+            // 1. Past
+            if (isSlotInPast(day.dateStr, time)) {
+              html += `<div class="mobile-court-item">
+                <span class="mobile-court-name">${court}</span>
+                <span class="mobile-status past">Past</span>
+              </div>`;
+              return;
+            }
+
+            // 2. Scheduled closure
+           const scheduledClosure = scheduledClosures.find(c =>
+      c.date === day.dateStr &&
+      (
+        c.court === court ||
+        c.court === 'All'
+      )
+    );
+
+            if (scheduledClosure) {
+              html += `<div class="mobile-court-item">
+                <span class="mobile-court-name">${court}</span>
+                <span class="mobile-status maintenance">
+                  ${scheduledClosure.reason === 'tournament'
+      ? 'Tournament'
+      : scheduledClosure.reason === 'maintenance'
+      ? 'Maintenance'
+      : 'Closed'}
+                </span>
+              </div>`;
+              return;
+            }
+
+            // 3. Facility-wide closed
+            if (facilitySettings.facilityStatus === 'closed') {
+              html += `<div class="mobile-court-item">
+                <span class="mobile-court-name">${court}</span>
+                <span class="mobile-status maintenance">Closed</span>
+              </div>`;
+              return;
+            }
+
+            // 4. Individual court status
+            const courtStatus = facilitySettings.courts?.[court];
+
+            if (courtStatus && courtStatus !== 'open') {
+              let statusText = 'Closed';
+
+              if (courtStatus === 'maintenance') {
+                statusText = 'Maintenance';
+              } else if (courtStatus === 'event') {
+                statusText = 'Event';
+              } else if (courtStatus === 'tournament') {
+                statusText = 'Tournament';
+              }
+
+              html += `<div class="mobile-court-item">
+                <span class="mobile-court-name">${court}</span>
+                <span class="mobile-status maintenance">${statusText}</span>
+              </div>`;
+              return;
+            }
+
+            // 5. Existing booking
+            const booking = db.find(b =>
+              b.date === day.dateStr &&
+              b.court === court &&
+              b.time === time &&
+              b.status !== 'cancelled'
+            );
+
+            const isBooked = !!booking;
+
+            const hour = parseInt(time.split(':')[0]);
+
+            let statusClass = 'open';
+            let statusText = 'Open';
+            let clickAction =
+              `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`
+
+            // 6. Open Play
+            if (
+              (court === 'Court 1' && hour >= 20) ||
+              (court === 'Court 2' && hour >= 17)
+            ) {
+              statusClass = 'open-play';
+              statusText = 'Open Play';
+              clickAction = '';
+            }
+
+            // 7. Booked / Pending
+            else if (isBooked) {
+              statusClass =
+                booking.status === 'pending'
+                  ? 'pending'
+                  : 'booked';
+
+              statusText =
+                booking.status === 'pending'
+                  ? 'Pending'
+                  : 'Booked';
+
+              clickAction = '';
+            }
+
+            html += `<div class="mobile-court-item">
+              <span class="mobile-court-name">${court}</span>
+              <span class="mobile-status ${statusClass}" ${clickAction}>
+                ${statusText}
+              </span>
+            </div>`;
+          });
+
+          html += `</div></div>`;
+        });
+
+        html += `</div></div>`;
+      });
+
+      if (html === '') {
+        listContainer.innerHTML =
+          '<p style="text-align: center; color: var(--gray-500); padding: 2rem;">No available slots this week.</p>';
+      } else {
+        listContainer.innerHTML = html;
+      }
+    }
+
+
+    // Make the function available globally
+    window.renderMobileSchedule = renderMobileSchedule;
+      // Add-on Quantity Logic
+      document.querySelectorAll('.qty-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const type = e.target.dataset.type;
+          const isPlus = e.target.classList.contains('plus');
+
+          if (type === 'paddle') {
+            if (isPlus) paddleQty++;
+            else if (paddleQty > 0) paddleQty--;
+            document.getElementById('paddleQty').textContent = paddleQty;
+          } else if (type === 'ball') {
+            if (isPlus) ballQty++;
+            else if (ballQty > 0) ballQty--;
+            document.getElementById('ballQty').textContent = ballQty;
+          }
+          updateFormTotal();
+        });
+      });
+
+      // Duration Dropdown Logic
+      const durationSelect = document.getElementById('bookingDuration');
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateFormTotal);
+      }
+
+          // Clear Slot Button Logic
+      const clearSlotBtn = document.getElementById('clearSlotBtn');
+      if (clearSlotBtn) {
+        clearSlotBtn.addEventListener('click', () => {
+          document.getElementById('selectedSlotDisplay').value = '';
+          document.getElementById('hiddenDate').value = '';
+          document.getElementById('hiddenTime').value = '';
+          document.getElementById('hiddenCourt').value = '';
+          clearSlotBtn.disabled = true;
+          
+          // Reset the total price to 0 when slot is cleared
+          updateFormTotal(); 
+          renderMobileSchedule(); // Refresh mobile view
+        });
+      }
+
+        // ==========================================
+      // STEP 1: SHOW REVIEW MODAL ON SUBMIT
+      // ==========================================
+      const bookingForm = document.getElementById('bookingForm');
+      if (bookingForm) {
+        bookingForm.addEventListener('submit', (e) => {
+          e.preventDefault(); // Stop it from saving immediately
+          
+          const date = document.getElementById('hiddenDate').value;
+          const startTimeStr = document.getElementById('hiddenTime').value; // 🌟 GRAB THE TIME
+          
+          if (!date || !startTimeStr) { 
+            alert('Please select a time slot from the calendar above.'); 
+            return; 
+          }
+
+          // Gather Data for Review
+          const name = document.getElementById('customerName').value;
+          const mobile = document.getElementById('customerMobile').value;
+          const email = document.getElementById('customerEmail').value;
+          const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
+
+    // ==========================================
+    // OPEN PLAY BOOKING RESTRICTIONS
+    // ==========================================
+
+    const selectedCourt = document.getElementById('hiddenCourt').value;
+    const startHour = parseInt(startTimeStr.split(':')[0]);
+
+    const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+          const slotDisplay = document.getElementById('selectedSlotDisplay').value;
+          
+          const addonsText = [];
+          if (paddleQty > 0) addonsText.push(`${paddleQty}x Paddle (₱${paddleQty * 30})`);
+          if (ballQty > 0) addonsText.push(`${ballQty}x Ball (₱${ballQty * 100})`);
+          const addonsDisplay = addonsText.length > 0 ? addonsText.join(', ') : 'None';
+
+          const addonsPrice = (paddleQty * 30) + (ballQty * 100);
+          const totalAmount = calculateBookingTotal({
+            time: startTimeStr,
+            duration,
+            addons: { paddle: paddleQty, ball: ballQty }
+          });
+
+          // Populate Review Modal
+          document.getElementById('rev-name').textContent = name;
+          document.getElementById('rev-mobile').textContent = mobile;
+          document.getElementById('rev-email').textContent = email;
+          document.getElementById('rev-slot').textContent = slotDisplay;
+          document.getElementById('rev-duration').textContent = `${duration} Hour(s)`;
+          document.getElementById('rev-addons').textContent = addonsDisplay;
+          document.getElementById('rev-payment').textContent = paymentMethod === 'gcash' ? 'GCash' : 'Pay on Venue';
+          document.getElementById('rev-total').textContent = `₱${totalAmount}`;
+
+          // Show the Modal
+          document.getElementById('reviewModal').classList.remove('hidden');
+        });
+      }
+
+        // ==========================================
+      // STEP 2: FINALIZE BOOKING (After Review)
+      // ==========================================
+      const finalizeBtn = document.getElementById('finalizeBookingBtn');
+      if (finalizeBtn) {
+        finalizeBtn.addEventListener('click', async () => {
+          // Re-grab the data
+          const date = document.getElementById('hiddenDate').value;
+          const startTimeStr = document.getElementById('hiddenTime').value;
+          const court = document.getElementById('hiddenCourt').value;
+          const duration = parseInt(document.getElementById('bookingDuration').value) || 1;
+          const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+
+          const addonsTotal = (paddleQty * 30) + (ballQty * 100);
+          const totalAmount = calculateBookingTotal({
+            time: startTimeStr,
+            duration,
+            addons: { paddle: paddleQty, ball: ballQty }
+          }); // Correct mixed-rate total
+
+     const openPlayCheck = validateOpenPlayRestriction(
+            court,
+            startTimeStr,
+            duration
+          );
+
+          if (!openPlayCheck.allowed) {
+            alert(openPlayCheck.message);
+            closeReviewModal();
+            return;
+          }
+
+          const db = await getBookings(); // ✅ Fetches from Firebase
+          const startHour = parseInt(startTimeStr.split(':')[0]);
+          let isAvailable = true;
+
+          // VALIDATION: Check if ALL requested hours are available
+          for (let i = 0; i < duration; i++) {
+            const checkHour = startHour + i;
+            const checkTimeStr = `${checkHour.toString().padStart(2, '0')}:00`;
+            
+            const isBooked = db.some(b => 
+              b.date === date && 
+              b.court === court && 
+              b.time === checkTimeStr && 
+              b.status !== 'cancelled'
+            );
+
+            if (isBooked) {
+              isAvailable = false;
+              break;
+            }
+          }
+
+          if (!isAvailable) {
+            alert(`Sorry, the court is no longer available for ${duration} hour(s). Another booking overlaps with this time.`);
+            closeReviewModal();
+            return;
+          }
+
+          // SAVE BOOKINGS
+          const bookingId =
+      'HIRAYA-' +
+      Date.now().toString().slice(-6) +
+      '-' +
+      Math.random().toString(36).substring(2, 6).toUpperCase();
+          const status = 'pending'; 
+          const bookingsToSave = [];
+
+          for (let i = 0; i < duration; i++) {
+            const currentHour = startHour + i;
+            const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:00`;
+
+           bookingsToSave.push({
+      bookingId: bookingId,
+      date: date,
+      time: currentTimeStr,
+      court: court,
+      name: document.getElementById('customerName').value,
+      mobile: document.getElementById('customerMobile').value,
+      email: document.getElementById('customerEmail').value,
+      payment: paymentMethod,
+      addons: { paddle: paddleQty, ball: ballQty },
+      duration: duration,
+      status: status,
+      totalAmount: totalAmount,
+      createdAt: Date.now()
+    });
+          }
+          
+          await addBooking(bookingsToSave); // Saves to the cloud!
+
+          // Trigger Admin Email
+          notifyAdminOfNewBooking({
+            id: bookingId,
+            date: date,
+            time: startTimeStr,
+            court: court,
+            duration: duration,
+            name: document.getElementById('customerName').value,
+            email: document.getElementById('customerEmail').value,
+            mobile: document.getElementById('customerMobile').value,
+            payment: paymentMethod,
+            addons: { paddle: paddleQty, ball: ballQty },
+            totalAmount: totalAmount, // 🌟 ADDED: So the admin email shows the correct price!
+            status: status
+          });
+          
+          // Close Review Modal
+          closeReviewModal();
+          
+          // Show the beautiful Success Modal
+          const customerEmail = document.getElementById('customerEmail').value;
+          openSuccessModal(customerEmail);
+          
+          // Handle GCash Modal if needed
+          if (paymentMethod === 'gcash') {
+            const reference = 'HIRAYA-' + Math.floor(Math.random() * 100000);
+            
+            setTimeout(() => {
+              // 🌟 FIX: Use the dynamically calculated totalAmount, not hardcoded 300
+              openGcashModal(totalAmount, reference);
+            }, 500);
+          }
+          
+          // Reset Form & UI
+          bookingForm.reset();
+          document.getElementById('selectedSlotDisplay').value = '';
+          document.getElementById('hiddenDate').value = '';
+          document.getElementById('hiddenTime').value = '';
+          document.getElementById('hiddenCourt').value = '';
+          const clearSlotBtn = document.getElementById('clearSlotBtn');
+          if (clearSlotBtn) clearSlotBtn.disabled = true;
+
+          paddleQty = 0;
+          ballQty = 0;
+          document.getElementById('paddleQty').textContent = '0';
+          document.getElementById('ballQty').textContent = '0';
+          updateFormTotal();
+          renderCalendar();
+          renderMobileSchedule(); // Update mobile view after booking
+        });
+      }
+
+      // Lookup Logic (Multi-Hour Support)
+    const lookupBtn = document.getElementById('lookupBtn');
+    const lookupInput = document.getElementById('lookupInput');
+    const lookupResult = document.getElementById('lookupResult');
+
+    if (lookupBtn && lookupInput && lookupResult) {
+      lookupBtn.addEventListener('click', async () => {
+        const query = lookupInput.value.trim();
+
+        if (!query) {
+          alert('Please enter a Booking ID or Phone Number');
+          return;
+        }
+
+        const db = await getBookings();
+        const queryNumbersOnly = query.replace(/\D/g, '');
+
+        // Get all ACTIVE records matching Booking ID or Phone Number
+        const activeMatches = db.filter(b => {
+          if (!b || b.status === 'cancelled') return false;
+
+          const matchId = b.bookingId === query;
+          const matchMobile = b.mobile === query;
+
+          const matchMobileNumbersOnly =
+            b.mobile &&
+            b.mobile.replace(/\D/g, '') === queryNumbersOnly;
+
+          return matchId || matchMobile || matchMobileNumbersOnly;
+        });
+
+        if (activeMatches.length > 0) {
+
+          // ==========================================
+          // GROUP RECORDS BY BOOKING ID
+          // ==========================================
+          const groupedBookings = {};
+
+          activeMatches.forEach(b => {
+            const key = b.bookingId || b.id;
+
+            if (!groupedBookings[key]) {
+              groupedBookings[key] = [];
+            }
+
+            groupedBookings[key].push(b);
+          });
+
+          let resultsHTML = '';
+
+          Object.values(groupedBookings).forEach(bookings => {
+
+            // Sort hourly records inside THIS booking only
+            bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+            const firstBooking = bookings[0];
+            const lastBooking = bookings[bookings.length - 1];
+
+            const lastHour = parseInt(lastBooking.time.split(':')[0]);
+            const endHour = lastHour + 1;
+
+            const startTimeStr = formatTime12(firstBooking.time);
+
+            const endTimeStr = formatTime12(
+              `${endHour.toString().padStart(2, '0')}:00`
+            );
+
+            // Prefer saved duration, otherwise count hourly records
+            const duration =
+              parseInt(firstBooking.duration) || bookings.length;
+
+            const addons =
+              firstBooking.addons || { paddle: 0, ball: 0 };
+
+            // Make sure total uses the full booking duration
+            const total = calculateBookingTotal({
+              ...firstBooking,
+              duration: duration
+            });
+
+            let addonsText = 'None';
+
+            if ((addons.paddle || 0) > 0 || (addons.ball || 0) > 0) {
+              const addonList = [];
+
+              if (addons.paddle > 0) {
+                addonList.push(`${addons.paddle}x Paddle`);
+              }
+
+              if (addons.ball > 0) {
+                addonList.push(`${addons.ball}x Ball`);
+              }
+
+              addonsText = addonList.join(', ');
+            }
+
+            resultsHTML += `
+              <div style="
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                border-left: 4px solid var(--success);
+                margin-bottom: 16px;
+              ">
+                <h3 style="
+                  margin-bottom: 16px;
+                  color: var(--purple-dark);
+                ">
+                  ✓ Active Booking Found
+                </h3>
+
+                <div style="
+                  display: grid;
+                  gap: 12px;
+                  font-size: 0.95rem;
+                ">
+
+                  <div>
+                    <strong>Booking ID:</strong>
+                    ${firstBooking.bookingId || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Date:</strong>
+                    ${firstBooking.date || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Time:</strong>
+                    ${startTimeStr} to ${endTimeStr}
+                    <span style="
+                      color: var(--purple-dark);
+                      font-weight: 700;
+                    ">
+                      (${duration} Hour${duration > 1 ? 's' : ''})
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong>Court:</strong>
+                    ${firstBooking.court || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Name:</strong>
+                    ${firstBooking.name || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Email:</strong>
+                    ${firstBooking.email || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Mobile:</strong>
+                    ${firstBooking.mobile || 'N/A'}
+                  </div>
+
+                  <div>
+                    <strong>Payment:</strong>
+                    ${(firstBooking.payment || 'N/A').toUpperCase()}
+                  </div>
+
+                  <div>
+                    <strong>Add-ons:</strong>
+                    ${addonsText}
+                  </div>
+
+                  <div>
+                    <strong>Total:</strong>
+                    <span style="
+                      color: var(--success);
+                      font-weight: 700;
+                      font-size: 1.1rem;
+                    ">
+                      ₱${total}
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong>Status:</strong>
+                    <span class="
+                      status-badge
+                      ${firstBooking.status || 'confirmed'}
+                    ">
+                      ${(firstBooking.status || 'confirmed').toUpperCase()}
+                    </span>
+                  </div>
+
+                </div>
+
+                <button
+                  onclick="window.cancelBookingFunc('${firstBooking.bookingId}')"
+                  style="
+                    margin-top: 20px;
+                    background: var(--danger);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    font-weight: 600;
+                    cursor: pointer;
+                  "
+                >
+                  Cancel Booking
+                </button>
+              </div>
+            `;
+          });
+
+          lookupResult.innerHTML = resultsHTML;
+          lookupResult.classList.remove('hidden');
+
+          lookupResult.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+          });
+
+        } else {
+
+          // Check if this customer has cancelled bookings
+          const cancelledBooking = db.find(b => {
+            if (!b || b.status !== 'cancelled') return false;
+
+            const matchId = b.bookingId === query;
+            const matchMobile = b.mobile === query;
+
+            const matchMobileNumbersOnly =
+              b.mobile &&
+              b.mobile.replace(/\D/g, '') === queryNumbersOnly;
+
+            return matchId || matchMobile || matchMobileNumbersOnly;
+          });
+
+          if (cancelledBooking) {
+
+            lookupResult.innerHTML = `
+              <div style="
+                background: #f3f4f6;
+                padding: 16px;
+                border-radius: 8px;
+                border-left: 4px solid var(--gray-500);
+              ">
+                <strong>ℹ️ No Active Bookings</strong><br>
+                You don't have any active bookings at the moment.<br>
+                <small style="color: var(--gray-600);">
+                  Previous bookings have been cancelled or completed.
+                </small>
+              </div>
+            `;
+
+          } else {
+
+            lookupResult.innerHTML = `
+              <div style="
+                background: #fee2e2;
+                padding: 16px;
+                border-radius: 8px;
+                border-left: 4px solid var(--danger);
+                color: #991b1b;
+              ">
+                <strong>❌ No booking found</strong><br>
+                Please check your Booking ID or Phone Number and try again.
+              </div>
+            `;
+          }
+
+          lookupResult.classList.remove('hidden');
+        }
+      });
+    }
     });
 
-    if (activeMatches.length > 0) {
+    // ==========================================
+    // GLOBAL FUNCTIONS (Outside DOMContentLoaded)
+    // ==========================================
+    function getFacilitySettings() {
+      return JSON.parse(localStorage.getItem('hirayaFacilitySettings')) || {
+        facilityStatus: 'open',
+        courts: { 'Court 1': 'open', 'Court 2': 'open' }
+      };
+    }
 
-      // ==========================================
-      // GROUP RECORDS BY BOOKING ID
-      // ==========================================
+    async function getFacilitySettingsFromFirestore() {
+      try {
+        const {
+          doc,
+          getDoc
+        } = window.firebaseFunctions;
+
+        const settingsRef = doc(
+          window.db,
+          'settings',
+          'facility'
+        );
+
+        const snapshot = await getDoc(settingsRef);
+
+        if (snapshot.exists()) {
+          return snapshot.data();
+        }
+
+      } catch (error) {
+        console.error('Error loading facility settings:', error);
+      }
+
+      // Safe fallback
+      return {
+        facilityStatus: 'open',
+        courts: {
+          'Court 1': 'open',
+          'Court 2': 'open'
+        }
+      };
+    }
+
+
+    function openGcashModal(amount, reference) {
+      document.getElementById('gcashAmount').textContent = `₱${amount.toFixed(2)}`;
+      document.getElementById('gcashReference').textContent = reference || 'N/A';
+      document.getElementById('gcashModal').classList.remove('hidden');
+    }
+
+    function closeGcashModal() {
+      document.getElementById('gcashModal').classList.add('hidden');
+    }
+
+    window.openGcashModal = openGcashModal;
+    window.closeGcashModal = closeGcashModal;
+
+    // ==========================================
+    // GLOBAL CANCEL FUNCTION
+    // ==========================================
+    window.cancelBookingFunc = async function(bookingId) {
+      if (
+        confirm(
+          'Are you sure you want to cancel this booking? This will cancel ALL hours for this booking.'
+        )
+      ) {
+        try {
+          await updateBookingStatus(bookingId, 'cancelled');
+
+          alert('Booking cancelled.');
+
+          const lookupResult = document.getElementById('lookupResult');
+          if (lookupResult) {
+            lookupResult.classList.add('hidden');
+          }
+
+          renderCalendar();
+
+          if (typeof renderMobileSchedule === 'function') {
+            renderMobileSchedule();
+          }
+        } catch (error) {
+          console.error('Error cancelling booking:', error);
+          alert('There was an error cancelling the booking. Please try again.');
+        }
+      }
+    };
+
+    // ==========================================
+    // REVIEW MODAL FUNCTIONS
+    // ==========================================
+
+    function closeReviewModal() {
+      document.getElementById('reviewModal').classList.add('hidden');
+    }
+
+    // ==========================================
+    // SUCCESS MODAL FUNCTIONS
+    // ==========================================
+
+    function openSuccessModal(email) {
+      document.getElementById('successEmail').textContent = email;
+      document.getElementById('successModal').classList.remove('hidden');
+    }
+
+    function closeSuccessModal() {
+      document.getElementById('successModal').classList.add('hidden');
+    }
+
+    window.openSuccessModal = openSuccessModal;
+    window.closeSuccessModal = closeSuccessModal;
+
+    // Make it globally accessible
+    window.closeReviewModal = closeReviewModal;
+
+    // ==========================================
+    // GCASH MODAL FUNCTIONS
+    // ==========================================
+    function openGcashModal(amount, reference) {
+      document.getElementById('gcashAmount').textContent = `₱${amount.toFixed(2)}`;
+      document.getElementById('gcashReference').textContent = reference || 'N/A';
+      document.getElementById('gcashModal').classList.remove('hidden');
+    }
+
+    function closeGcashModal() {
+      document.getElementById('gcashModal').classList.add('hidden');
+    }
+
+    // Make functions globally accessible for HTML onclick attributes
+    window.openGcashModal = openGcashModal;
+    window.closeGcashModal = closeGcashModal;
+
+    // ==========================================
+    // ADMIN DASHBOARD FUNCTIONS
+    // ==========================================
+
+    // Check if we're on the admin page
+    if (document.getElementById('bookingsTableBody')) {
+      initAdminDashboard();
+    }
+
+    function initAdminDashboard() {
+      // Load data immediately
+      loadAdminData();
+      
+      // Filter buttons
+      const applyBtn = document.getElementById('applyFiltersBtn');
+      const clearBtn = document.getElementById('clearFiltersBtn');
+      
+      if (applyBtn) applyBtn.addEventListener('click', loadAdminData);
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          document.getElementById('adminDateFilter').value = '';
+          document.getElementById('adminCourtFilter').value = '';
+          document.getElementById('adminStatusFilter').value = '';
+          loadAdminData();
+        });
+      }
+      
+      // Export dropdown toggle
+      const exportDropdownBtn = document.getElementById('exportDropdownBtn');
+      const exportOptions = document.getElementById('exportOptions');
+      
+      if (exportDropdownBtn && exportOptions) {
+        exportDropdownBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          exportOptions.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!exportDropdownBtn.contains(e.target) && !exportOptions.contains(e.target)) {
+            exportOptions.classList.add('hidden');
+          }
+        });
+      }
+    }
+
+    function calculateTotalEarnings(bookings) {
       const groupedBookings = {};
 
-      activeMatches.forEach(b => {
+      bookings.forEach(b => {
+        if (b.status === 'cancelled') return;
+
         const key = b.bookingId || b.id;
 
         if (!groupedBookings[key]) {
-          groupedBookings[key] = [];
+          groupedBookings[key] = b;
         }
-
-        groupedBookings[key].push(b);
       });
 
-      let resultsHTML = '';
+      return Object.values(groupedBookings).reduce((sum, booking) => {
+        return sum + calculateBookingTotal(booking);
+      }, 0);
+    }
 
-      Object.values(groupedBookings).forEach(bookings => {
+    async function loadAdminData() {
+      // 1. Wait for Firebase to fetch the data
+      const db = await getBookings(); 
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 2. Get filter values safely
+      const dateFilterEl = document.getElementById('adminDateFilter');
+      const courtFilterEl = document.getElementById('adminCourtFilter');
+      const statusFilterEl = document.getElementById('adminStatusFilter');
+      
+      const dateFilter = dateFilterEl ? dateFilterEl.value : '';
+      const courtFilter = courtFilterEl ? courtFilterEl.value : '';
+      const statusFilter = statusFilterEl ? statusFilterEl.value : '';
+      
+      // 3. Apply filters (Ignore cancelled bookings by default)
+      let filteredBookings = db.filter(b => b.status !== 'cancelled');
+      
+      if (dateFilter) filteredBookings = filteredBookings.filter(b => b.date === dateFilter);
+      if (courtFilter) filteredBookings = filteredBookings.filter(b => b.court === courtFilter);
+      if (statusFilter) filteredBookings = filteredBookings.filter(b => b.status === statusFilter);
+      
+      // 4. Update stats
+      const totalBookings = new Set(
+      db
+        .filter(b => b.status !== 'cancelled')
+        .map(b => b.bookingId || b.id)
+    ).size;
+      const todayBookings = new Set(
+      db
+        .filter(b => b.date === today && b.status !== 'cancelled')
+        .map(b => b.bookingId)
+    ).size;
+      
+    const todayRevenue = (() => {
+      // Group today's bookings by bookingId
+      const groups = {};
 
-        // Sort hourly records inside THIS booking only
+      db
+        .filter(b => b.date === today && b.status !== 'cancelled')
+        .forEach(b => {
+          if (!groups[b.bookingId]) {
+            groups[b.bookingId] = [];
+          }
+
+          groups[b.bookingId].push(b);
+        });
+
+      // Calculate each booking only ONCE
+      return Object.values(groups).reduce((sum, group) => {
+        const firstBooking = group[0];
+
+        // Calculate the booking total once
+        const bookingTotal = calculateBookingTotal(firstBooking);
+
+        return sum + bookingTotal;
+      }, 0);
+    })();
+      
+      const totalEl = document.getElementById('totalBookings');
+      const todayEl = document.getElementById('todayBookings');
+      const revenueEl = document.getElementById('todayRevenue');
+      
+      if (totalEl) totalEl.textContent = totalBookings;
+      if (todayEl) todayEl.textContent = todayBookings;
+      if (revenueEl) revenueEl.textContent = `₱${todayRevenue}`;
+      
+      // 5. Render table
+      renderAdminTable(filteredBookings);
+    }
+
+    function renderAdminTable(bookings) {
+      const tbody = document.getElementById('bookingsTableBody');
+      if (!tbody) return;
+
+      // Group bookings by bookingId
+      const grouped = {};
+      bookings.forEach(b => {
+        if (!grouped[b.bookingId]) grouped[b.bookingId] = [];
+        grouped[b.bookingId].push(b);
+      });
+
+      // Convert to array of groups
+      const bookingGroups = Object.values(grouped);
+
+      if (bookingGroups.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <p>No bookings found</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+    // Sort bookings: latest BOOKED first
+    bookingGroups.sort((a, b) => {
+      const createdA = a[0].createdAt || 0;
+      const createdB = b[0].createdAt || 0;
+
+      return createdB - createdA;
+    });
+
+      tbody.innerHTML = bookingGroups.map(group => {
+
+        // Sort the hours in this group chronologically
+        group.sort((a, b) => a.time.localeCompare(b.time));
+
+        const first = group[0];
+        const last = group[group.length - 1];
+        const duration = group.length;
+
+        const total = calculateBookingTotal(first);
+
+        // Calculate End Time
+        const lastHour = parseInt(last.time.split(':')[0]);
+        const endHour = lastHour + 1;
+        const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+
+        // Format Add-ons text
+        const addonsText = [];
+
+        if (first.addons?.paddle > 0) {
+          addonsText.push(`${first.addons.paddle}x Paddle`);
+        }
+
+        if (first.addons?.ball > 0) {
+          addonsText.push(`${first.addons.ball}x Ball`);
+        }
+
+        return `
+          <!-- DESKTOP TABLE ROW -->
+          <tr class="desktop-booking-row">
+            <td>
+              <strong>${first.bookingId}</strong>
+            </td>
+
+            <td>${first.date}</td>
+
+            <td>
+              ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
+              <br>
+              <small style="color:var(--gray-500)">(${duration}h)</small>
+            </td>
+
+            <td>${first.court}</td>
+
+            <td>
+              <div>${first.name}</div>
+              <small style="color: var(--gray-500);">
+                ${first.mobile}
+              </small>
+            </td>
+
+            <td>
+              <span style="text-transform: capitalize; font-weight: 600;">
+                ${first.payment === 'gcash' ? '📱 GCash' : '💵 Venue'}
+              </span>
+            </td>
+
+            <td>
+              ${addonsText.length > 0 ? addonsText.join(', ') : '-'}
+            </td>
+
+            <td>
+              <strong>₱${total}</strong>
+            </td>
+
+            <td>
+              <span class="status-badge ${first.status || 'confirmed'}">
+                ${first.status || 'confirmed'}
+              </span>
+            </td>
+
+    <td>
+      <button
+        class="action-btn view"
+        style="background:#e0e7ff; color:#3730a3;"
+        onclick="openEditModal('${first.bookingId}')">
+        Edit
+      </button>
+
+      <button
+        class="action-btn view"
+        onclick="viewBookingDetails('${first.bookingId}')">
+        View
+      </button>
+    </td>
+          </tr>
+
+
+    <!-- MOBILE BOOKING CARD -->
+    <tr
+      class="mobile-booking-card"
+      onclick="viewBookingDetails('${first.bookingId}')"
+    >
+      <td colspan="10">
+
+        <div class="mobile-booking-inner">
+
+          <div class="mobile-booking-main">
+
+            <div class="mobile-booking-top">
+              <div class="mobile-booking-id">
+                ${first.bookingId}
+              </div>
+
+              <span class="mobile-status-badge ${first.status || 'confirmed'}">
+                ${(first.status || 'confirmed').toUpperCase()}
+              </span>
+            </div>
+
+            <div class="mobile-booking-name">
+              ${first.name}
+            </div>
+
+            <div class="mobile-booking-time">
+              🕐 ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
+            </div>
+
+          </div>
+
+          <div class="mobile-booking-arrow">
+            ›
+          </div>
+
+        </div>
+
+      </td>
+    </tr>
+        `;
+      }).join('');
+    }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const icon = type === 'success' ? '✅' : '❌';
+
+        toast.innerHTML = `
+            <span class="toast-icon">${icon}</span>
+            <span class="toast-message">${message}</span>
+            <span class="toast-close" onclick="this.parentElement.remove()">&times;</span>
+        `;
+
+        container.appendChild(toast);
+
+        // Auto remove after 4 seconds
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    async function confirmBooking(id) {
+      await updateBookingStatus(id, 'confirmed');
+
+      const db = await getBookings();
+
+      // Get ALL hourly records for this booking
+      const bookings = db.filter(b => b.bookingId === id);
+
+      if (bookings.length > 0) {
+        // Always use the earliest booked hour
         bookings.sort((a, b) => a.time.localeCompare(b.time));
 
         const firstBooking = bookings[0];
-        const lastBooking = bookings[bookings.length - 1];
 
-        const lastHour = parseInt(lastBooking.time.split(':')[0]);
-        const endHour = lastHour + 1;
-
-        const startTimeStr = formatTime12(firstBooking.time);
-
-        const endTimeStr = formatTime12(
-          `${endHour.toString().padStart(2, '0')}:00`
-        );
-
-        // Prefer saved duration, otherwise count hourly records
-        const duration =
-          parseInt(firstBooking.duration) || bookings.length;
-
-        const addons =
-          firstBooking.addons || { paddle: 0, ball: 0 };
-
-        // Make sure total uses the full booking duration
-        const total = calculateBookingTotal({
+        const confirmationData = {
           ...firstBooking,
-          duration: duration
-        });
 
-        let addonsText = 'None';
+          // Use saved duration, or number of hourly records as fallback
+          duration: firstBooking.duration || bookings.length
+        };
 
-        if ((addons.paddle || 0) > 0 || (addons.ball || 0) > 0) {
-          const addonList = [];
-
-          if (addons.paddle > 0) {
-            addonList.push(`${addons.paddle}x Paddle`);
-          }
-
-          if (addons.ball > 0) {
-            addonList.push(`${addons.ball}x Ball`);
-          }
-
-          addonsText = addonList.join(', ');
-        }
-
-        resultsHTML += `
-          <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid var(--success);
-            margin-bottom: 16px;
-          ">
-            <h3 style="
-              margin-bottom: 16px;
-              color: var(--purple-dark);
-            ">
-              ✓ Active Booking Found
-            </h3>
-
-            <div style="
-              display: grid;
-              gap: 12px;
-              font-size: 0.95rem;
-            ">
-
-              <div>
-                <strong>Booking ID:</strong>
-                ${firstBooking.bookingId || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Date:</strong>
-                ${firstBooking.date || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Time:</strong>
-                ${startTimeStr} to ${endTimeStr}
-                <span style="
-                  color: var(--purple-dark);
-                  font-weight: 700;
-                ">
-                  (${duration} Hour${duration > 1 ? 's' : ''})
-                </span>
-              </div>
-
-              <div>
-                <strong>Court:</strong>
-                ${firstBooking.court || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Name:</strong>
-                ${firstBooking.name || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Email:</strong>
-                ${firstBooking.email || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Mobile:</strong>
-                ${firstBooking.mobile || 'N/A'}
-              </div>
-
-              <div>
-                <strong>Payment:</strong>
-                ${(firstBooking.payment || 'N/A').toUpperCase()}
-              </div>
-
-              <div>
-                <strong>Add-ons:</strong>
-                ${addonsText}
-              </div>
-
-              <div>
-                <strong>Total:</strong>
-                <span style="
-                  color: var(--success);
-                  font-weight: 700;
-                  font-size: 1.1rem;
-                ">
-                  ₱${total}
-                </span>
-              </div>
-
-              <div>
-                <strong>Status:</strong>
-                <span class="
-                  status-badge
-                  ${firstBooking.status || 'confirmed'}
-                ">
-                  ${(firstBooking.status || 'confirmed').toUpperCase()}
-                </span>
-              </div>
-
-            </div>
-
-            <button
-              onclick="window.cancelBookingFunc('${firstBooking.bookingId}')"
-              style="
-                margin-top: 20px;
-                background: var(--danger);
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-weight: 600;
-                cursor: pointer;
-              "
-            >
-              Cancel Booking
-            </button>
-          </div>
-        `;
-      });
-
-      lookupResult.innerHTML = resultsHTML;
-      lookupResult.classList.remove('hidden');
-
-      lookupResult.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest'
-      });
-
-    } else {
-
-      // Check if this customer has cancelled bookings
-      const cancelledBooking = db.find(b => {
-        if (!b || b.status !== 'cancelled') return false;
-
-        const matchId = b.bookingId === query;
-        const matchMobile = b.mobile === query;
-
-        const matchMobileNumbersOnly =
-          b.mobile &&
-          b.mobile.replace(/\D/g, '') === queryNumbersOnly;
-
-        return matchId || matchMobile || matchMobileNumbersOnly;
-      });
-
-      if (cancelledBooking) {
-
-        lookupResult.innerHTML = `
-          <div style="
-            background: #f3f4f6;
-            padding: 16px;
-            border-radius: 8px;
-            border-left: 4px solid var(--gray-500);
-          ">
-            <strong>ℹ️ No Active Bookings</strong><br>
-            You don't have any active bookings at the moment.<br>
-            <small style="color: var(--gray-600);">
-              Previous bookings have been cancelled or completed.
-            </small>
-          </div>
-        `;
-
-      } else {
-
-        lookupResult.innerHTML = `
-          <div style="
-            background: #fee2e2;
-            padding: 16px;
-            border-radius: 8px;
-            border-left: 4px solid var(--danger);
-            color: #991b1b;
-          ">
-            <strong>❌ No booking found</strong><br>
-            Please check your Booking ID or Phone Number and try again.
-          </div>
-        `;
+        await notifyCustomerOfConfirmation(confirmationData);
       }
 
-      lookupResult.classList.remove('hidden');
-    }
-  });
-}
-});
+      showToast(
+        `Booking ${id} confirmed! Customer notified.`,
+        'success'
+      );
 
-// ==========================================
-// GLOBAL FUNCTIONS (Outside DOMContentLoaded)
-// ==========================================
-function getFacilitySettings() {
-  return JSON.parse(localStorage.getItem('hirayaFacilitySettings')) || {
-    facilityStatus: 'open',
-    courts: { 'Court 1': 'open', 'Court 2': 'open' }
-  };
-}
-
-async function getFacilitySettingsFromFirestore() {
-  try {
-    const {
-      doc,
-      getDoc
-    } = window.firebaseFunctions;
-
-    const settingsRef = doc(
-      window.db,
-      'settings',
-      'facility'
-    );
-
-    const snapshot = await getDoc(settingsRef);
-
-    if (snapshot.exists()) {
-      return snapshot.data();
-    }
-
-  } catch (error) {
-    console.error('Error loading facility settings:', error);
-  }
-
-  // Safe fallback
-  return {
-    facilityStatus: 'open',
-    courts: {
-      'Court 1': 'open',
-      'Court 2': 'open'
-    }
-  };
-}
-
-
-function openGcashModal(amount, reference) {
-  document.getElementById('gcashAmount').textContent = `₱${amount.toFixed(2)}`;
-  document.getElementById('gcashReference').textContent = reference || 'N/A';
-  document.getElementById('gcashModal').classList.remove('hidden');
-}
-
-function closeGcashModal() {
-  document.getElementById('gcashModal').classList.add('hidden');
-}
-
-window.openGcashModal = openGcashModal;
-window.closeGcashModal = closeGcashModal;
-
-// ==========================================
-// GLOBAL CANCEL FUNCTION
-// ==========================================
-window.cancelBookingFunc = async function(bookingId) {
-  if (
-    confirm(
-      'Are you sure you want to cancel this booking? This will cancel ALL hours for this booking.'
-    )
-  ) {
-    try {
-      await updateBookingStatus(bookingId, 'cancelled');
-
-      alert('Booking cancelled.');
-
-      const lookupResult = document.getElementById('lookupResult');
-      if (lookupResult) {
-        lookupResult.classList.add('hidden');
-      }
-
-      renderCalendar();
-
-      if (typeof renderMobileSchedule === 'function') {
-        renderMobileSchedule();
-      }
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
-      alert('There was an error cancelling the booking. Please try again.');
-    }
-  }
-};
-
-// ==========================================
-// REVIEW MODAL FUNCTIONS
-// ==========================================
-
-function closeReviewModal() {
-  document.getElementById('reviewModal').classList.add('hidden');
-}
-
-// ==========================================
-// SUCCESS MODAL FUNCTIONS
-// ==========================================
-
-function openSuccessModal(email) {
-  document.getElementById('successEmail').textContent = email;
-  document.getElementById('successModal').classList.remove('hidden');
-}
-
-function closeSuccessModal() {
-  document.getElementById('successModal').classList.add('hidden');
-}
-
-window.openSuccessModal = openSuccessModal;
-window.closeSuccessModal = closeSuccessModal;
-
-// Make it globally accessible
-window.closeReviewModal = closeReviewModal;
-
-// ==========================================
-// GCASH MODAL FUNCTIONS
-// ==========================================
-function openGcashModal(amount, reference) {
-  document.getElementById('gcashAmount').textContent = `₱${amount.toFixed(2)}`;
-  document.getElementById('gcashReference').textContent = reference || 'N/A';
-  document.getElementById('gcashModal').classList.remove('hidden');
-}
-
-function closeGcashModal() {
-  document.getElementById('gcashModal').classList.add('hidden');
-}
-
-// Make functions globally accessible for HTML onclick attributes
-window.openGcashModal = openGcashModal;
-window.closeGcashModal = closeGcashModal;
-
-// ==========================================
-// ADMIN DASHBOARD FUNCTIONS
-// ==========================================
-
-// Check if we're on the admin page
-if (document.getElementById('bookingsTableBody')) {
-  initAdminDashboard();
-}
-
-function initAdminDashboard() {
-  // Load data immediately
-  loadAdminData();
-  
-  // Filter buttons
-  const applyBtn = document.getElementById('applyFiltersBtn');
-  const clearBtn = document.getElementById('clearFiltersBtn');
-  
-  if (applyBtn) applyBtn.addEventListener('click', loadAdminData);
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      document.getElementById('adminDateFilter').value = '';
-      document.getElementById('adminCourtFilter').value = '';
-      document.getElementById('adminStatusFilter').value = '';
       loadAdminData();
-    });
-  }
-  
-  // Export dropdown toggle
-  const exportDropdownBtn = document.getElementById('exportDropdownBtn');
-  const exportOptions = document.getElementById('exportOptions');
-  
-  if (exportDropdownBtn && exportOptions) {
-    exportDropdownBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      exportOptions.classList.toggle('hidden');
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!exportDropdownBtn.contains(e.target) && !exportOptions.contains(e.target)) {
-        exportOptions.classList.add('hidden');
-      }
-    });
-  }
-}
-
-function calculateTotalEarnings(bookings) {
-  const groupedBookings = {};
-
-  bookings.forEach(b => {
-    if (b.status === 'cancelled') return;
-
-    const key = b.bookingId || b.id;
-
-    if (!groupedBookings[key]) {
-      groupedBookings[key] = b;
     }
-  });
 
-  return Object.values(groupedBookings).reduce((sum, booking) => {
-    return sum + calculateBookingTotal(booking);
-  }, 0);
-}
+    async function cancelBookingFromAdmin(id) {
+      if (confirm('Are you sure you want to cancel this booking?')) {
+        await updateBookingStatus(id, 'cancelled');
+        showToast(`Booking ${id} has been cancelled.`, 'error');
+        loadAdminData();
+      }
+    }
 
-async function loadAdminData() {
-  // 1. Wait for Firebase to fetch the data
-  const db = await getBookings(); 
-  const today = new Date().toISOString().split('T')[0];
-  
-  // 2. Get filter values safely
-  const dateFilterEl = document.getElementById('adminDateFilter');
-  const courtFilterEl = document.getElementById('adminCourtFilter');
-  const statusFilterEl = document.getElementById('adminStatusFilter');
-  
-  const dateFilter = dateFilterEl ? dateFilterEl.value : '';
-  const courtFilter = courtFilterEl ? courtFilterEl.value : '';
-  const statusFilter = statusFilterEl ? statusFilterEl.value : '';
-  
-  // 3. Apply filters (Ignore cancelled bookings by default)
-  let filteredBookings = db.filter(b => b.status !== 'cancelled');
-  
-  if (dateFilter) filteredBookings = filteredBookings.filter(b => b.date === dateFilter);
-  if (courtFilter) filteredBookings = filteredBookings.filter(b => b.court === courtFilter);
-  if (statusFilter) filteredBookings = filteredBookings.filter(b => b.status === statusFilter);
-  
-  // 4. Update stats
-  const totalBookings = new Set(
-  db
-    .filter(b => b.status !== 'cancelled')
-    .map(b => b.bookingId || b.id)
-).size;
-  const todayBookings = new Set(
-  db
-    .filter(b => b.date === today && b.status !== 'cancelled')
-    .map(b => b.bookingId)
-).size;
-  
-const todayRevenue = (() => {
-  // Group today's bookings by bookingId
-  const groups = {};
+    async function viewBookingDetails(id) {
+      const db = await getBookings();
+      
+      // 1. Find ALL records for this booking ID
+      const bookings = db.filter(b => b.bookingId === id);
+      if (bookings.length === 0) return;
 
-  db
-    .filter(b => b.date === today && b.status !== 'cancelled')
-    .forEach(b => {
-      if (!groups[b.bookingId]) {
-        groups[b.bookingId] = [];
+      // Sort them chronologically
+      bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+      const firstBooking = bookings[0];
+      const lastBooking = bookings[bookings.length - 1];
+      const duration = bookings.length; // Total hours booked
+
+      // 2. Calculate End Time
+      const lastHour = parseInt(lastBooking.time.split(':')[0]);
+      const endHour = lastHour + 1;
+      const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+
+      // 3. Calculate Correct Total Price (Court fee * duration + addons)
+      // 3. Calculate Correct Total Price using dynamic AM/PM rates
+      const total = calculateBookingTotal(firstBooking);
+
+      // Populate Modal Data
+      document.getElementById('det-id').textContent = firstBooking.bookingId;
+      document.getElementById('det-date').textContent = firstBooking.date;
+      document.getElementById('det-time').textContent = `${formatTime12(firstBooking.time)} - ${formatTime12(endTimeStr)} (${duration}h)`;
+      document.getElementById('det-court').textContent = firstBooking.court;
+      
+      const statusEl = document.getElementById('det-status');
+      statusEl.textContent = (firstBooking.status || 'confirmed').toUpperCase();
+      statusEl.className = `detail-value status-badge ${firstBooking.status || 'confirmed'}`;
+
+      document.getElementById('det-name').textContent = firstBooking.name;
+      document.getElementById('det-email').textContent = firstBooking.email;
+      document.getElementById('det-mobile').textContent = firstBooking.mobile;
+      document.getElementById('det-payment').textContent = firstBooking.payment.toUpperCase();
+      document.getElementById('det-paddles').textContent = firstBooking.addons?.paddle || 0;
+      document.getElementById('det-balls').textContent = firstBooking.addons?.ball || 0;
+      document.getElementById('det-total').textContent = `₱${total}`;
+
+      // Handle Action Buttons Visibility
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      const cancelBtn = document.getElementById('modalCancelBtn');
+
+        // Show the Confirm button ONLY if the booking is pending
+      if (firstBooking.status === 'pending') {
+        confirmBtn.classList.remove('hidden');
+      } else {
+        confirmBtn.classList.add('hidden');
       }
 
-      groups[b.bookingId].push(b);
-    });
+      if (firstBooking.status === 'cancelled') {
+        cancelBtn.classList.add('hidden');
+      } else {
+        cancelBtn.classList.remove('hidden');
+      }
 
-  // Calculate each booking only ONCE
-  return Object.values(groups).reduce((sum, group) => {
-    const firstBooking = group[0];
-
-    // Calculate the booking total once
-    const bookingTotal = calculateBookingTotal(firstBooking);
-
-    return sum + bookingTotal;
-  }, 0);
-})();
-  
-  const totalEl = document.getElementById('totalBookings');
-  const todayEl = document.getElementById('todayBookings');
-  const revenueEl = document.getElementById('todayRevenue');
-  
-  if (totalEl) totalEl.textContent = totalBookings;
-  if (todayEl) todayEl.textContent = todayBookings;
-  if (revenueEl) revenueEl.textContent = `₱${todayRevenue}`;
-  
-  // 5. Render table
-  renderAdminTable(filteredBookings);
-}
-
-function renderAdminTable(bookings) {
-  const tbody = document.getElementById('bookingsTableBody');
-  if (!tbody) return;
-
-  // Group bookings by bookingId
-  const grouped = {};
-  bookings.forEach(b => {
-    if (!grouped[b.bookingId]) grouped[b.bookingId] = [];
-    grouped[b.bookingId].push(b);
-  });
-
-  // Convert to array of groups
-  const bookingGroups = Object.values(grouped);
-
-  if (bookingGroups.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="10" class="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-          <p>No bookings found</p>
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-// Sort bookings: latest BOOKED first
-bookingGroups.sort((a, b) => {
-  const createdA = a[0].createdAt || 0;
-  const createdB = b[0].createdAt || 0;
-
-  return createdB - createdA;
-});
-
-  tbody.innerHTML = bookingGroups.map(group => {
-
-    // Sort the hours in this group chronologically
-    group.sort((a, b) => a.time.localeCompare(b.time));
-
-    const first = group[0];
-    const last = group[group.length - 1];
-    const duration = group.length;
-
-    const total = calculateBookingTotal(first);
-
-    // Calculate End Time
-    const lastHour = parseInt(last.time.split(':')[0]);
-    const endHour = lastHour + 1;
-    const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
-
-    // Format Add-ons text
-    const addonsText = [];
-
-    if (first.addons?.paddle > 0) {
-      addonsText.push(`${first.addons.paddle}x Paddle`);
-    }
-
-    if (first.addons?.ball > 0) {
-      addonsText.push(`${first.addons.ball}x Ball`);
-    }
-
-    return `
-      <!-- DESKTOP TABLE ROW -->
-      <tr class="desktop-booking-row">
-        <td>
-          <strong>${first.bookingId}</strong>
-        </td>
-
-        <td>${first.date}</td>
-
-        <td>
-          ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
-          <br>
-          <small style="color:var(--gray-500)">(${duration}h)</small>
-        </td>
-
-        <td>${first.court}</td>
-
-        <td>
-          <div>${first.name}</div>
-          <small style="color: var(--gray-500);">
-            ${first.mobile}
-          </small>
-        </td>
-
-        <td>
-          <span style="text-transform: capitalize; font-weight: 600;">
-            ${first.payment === 'gcash' ? '📱 GCash' : '💵 Venue'}
-          </span>
-        </td>
-
-        <td>
-          ${addonsText.length > 0 ? addonsText.join(', ') : '-'}
-        </td>
-
-        <td>
-          <strong>₱${total}</strong>
-        </td>
-
-        <td>
-          <span class="status-badge ${first.status || 'confirmed'}">
-            ${first.status || 'confirmed'}
-          </span>
-        </td>
-
-<td>
-  <button
-    class="action-btn view"
-    style="background:#e0e7ff; color:#3730a3;"
-    onclick="openEditModal('${first.bookingId}')">
-    Edit
-  </button>
-
-  <button
-    class="action-btn view"
-    onclick="viewBookingDetails('${first.bookingId}')">
-    View
-  </button>
-</td>
-      </tr>
-
-
-<!-- MOBILE BOOKING CARD -->
-<tr
-  class="mobile-booking-card"
-  onclick="viewBookingDetails('${first.bookingId}')"
->
-  <td colspan="10">
-
-    <div class="mobile-booking-inner">
-
-      <div class="mobile-booking-main">
-
-        <div class="mobile-booking-top">
-          <div class="mobile-booking-id">
-            ${first.bookingId}
-          </div>
-
-          <span class="mobile-status-badge ${first.status || 'confirmed'}">
-            ${(first.status || 'confirmed').toUpperCase()}
-          </span>
-        </div>
-
-        <div class="mobile-booking-name">
-          ${first.name}
-        </div>
-
-        <div class="mobile-booking-time">
-          🕐 ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
-        </div>
-
-      </div>
-
-      <div class="mobile-booking-arrow">
-        ›
-      </div>
-
-    </div>
-
-  </td>
-</tr>
-    `;
-  }).join('');
-}
-
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-
-    const icon = type === 'success' ? '✅' : '❌';
-
-    toast.innerHTML = `
-        <span class="toast-icon">${icon}</span>
-        <span class="toast-message">${message}</span>
-        <span class="toast-close" onclick="this.parentElement.remove()">&times;</span>
-    `;
-
-    container.appendChild(toast);
-
-    // Auto remove after 4 seconds
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
-}
-
-async function confirmBooking(id) {
-  await updateBookingStatus(id, 'confirmed');
-
-  const db = await getBookings();
-
-  // Get ALL hourly records for this booking
-  const bookings = db.filter(b => b.bookingId === id);
-
-  if (bookings.length > 0) {
-    // Always use the earliest booked hour
-    bookings.sort((a, b) => a.time.localeCompare(b.time));
-
-    const firstBooking = bookings[0];
-
-    const confirmationData = {
-      ...firstBooking,
-
-      // Use saved duration, or number of hourly records as fallback
-      duration: firstBooking.duration || bookings.length
+    // Set up button actions for this specific booking
+    confirmBtn.onclick = async () => {
+      await confirmBooking(firstBooking.bookingId);
+      window.closeDetailsModal();
     };
 
-    await notifyCustomerOfConfirmation(confirmationData);
-  }
+    cancelBtn.onclick = async () => {
+      await cancelBookingFromAdmin(firstBooking.bookingId);
+      window.closeDetailsModal();
+    };
 
-  showToast(
-    `Booking ${id} confirmed! Customer notified.`,
-    'success'
-  );
+      // Show Modal
+      document.getElementById('bookingDetailsModal').classList.remove('hidden');
+    }
 
-  loadAdminData();
-}
+    window.closeDetailsModal = function() {
+      document.getElementById('bookingDetailsModal').classList.add('hidden');
+    };
 
-async function cancelBookingFromAdmin(id) {
-  if (confirm('Are you sure you want to cancel this booking?')) {
-    await updateBookingStatus(id, 'cancelled');
-    showToast(`Booking ${id} has been cancelled.`, 'error');
-    loadAdminData();
-  }
-}
+    async function exportToCSV() {
+      const db = await getBookings();
+      const filteredBookings = db.filter(b => b.status !== 'cancelled');
+      
+      // ✅ GROUP BY ID to prevent duplicate rows for multi-hour bookings
+    const uniqueBookings = {};
 
-async function viewBookingDetails(id) {
-  const db = await getBookings();
-  
-  // 1. Find ALL records for this booking ID
-  const bookings = db.filter(b => b.bookingId === id);
-  if (bookings.length === 0) return;
+    filteredBookings.forEach(b => {
+      const key = b.bookingId || b.id;
 
-  // Sort them chronologically
-  bookings.sort((a, b) => a.time.localeCompare(b.time));
+      if (!uniqueBookings[key]) {
+        uniqueBookings[key] = b;
+      }
+    });
 
-  const firstBooking = bookings[0];
-  const lastBooking = bookings[bookings.length - 1];
-  const duration = bookings.length; // Total hours booked
+    const finalBookings = Object.values(uniqueBookings);
 
-  // 2. Calculate End Time
-  const lastHour = parseInt(lastBooking.time.split(':')[0]);
-  const endHour = lastHour + 1;
-  const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+      let totalEarnings = 0;
+      
+      const headers = ['ID', 'Date', 'Time', 'Court', 'Name', 'Email', 'Mobile', 'Payment', 'Paddles', 'Balls', 'Total', 'Status'];
+      
+      const rows = finalBookings.map(b => {
+    let safeTotal = b.totalAmount;
 
-  // 3. Calculate Correct Total Price (Court fee * duration + addons)
-  // 3. Calculate Correct Total Price using dynamic AM/PM rates
-  const total = calculateBookingTotal(firstBooking);
-
-  // Populate Modal Data
-  document.getElementById('det-id').textContent = firstBooking.bookingId;
-  document.getElementById('det-date').textContent = firstBooking.date;
-  document.getElementById('det-time').textContent = `${formatTime12(firstBooking.time)} - ${formatTime12(endTimeStr)} (${duration}h)`;
-  document.getElementById('det-court').textContent = firstBooking.court;
-  
-  const statusEl = document.getElementById('det-status');
-  statusEl.textContent = (firstBooking.status || 'confirmed').toUpperCase();
-  statusEl.className = `detail-value status-badge ${firstBooking.status || 'confirmed'}`;
-
-  document.getElementById('det-name').textContent = firstBooking.name;
-  document.getElementById('det-email').textContent = firstBooking.email;
-  document.getElementById('det-mobile').textContent = firstBooking.mobile;
-  document.getElementById('det-payment').textContent = firstBooking.payment.toUpperCase();
-  document.getElementById('det-paddles').textContent = firstBooking.addons?.paddle || 0;
-  document.getElementById('det-balls').textContent = firstBooking.addons?.ball || 0;
-  document.getElementById('det-total').textContent = `₱${total}`;
-
-  // Handle Action Buttons Visibility
-  const confirmBtn = document.getElementById('modalConfirmBtn');
-  const cancelBtn = document.getElementById('modalCancelBtn');
-
-    // Show the Confirm button ONLY if the booking is pending
-  if (firstBooking.status === 'pending') {
-    confirmBtn.classList.remove('hidden');
-  } else {
-    confirmBtn.classList.add('hidden');
-  }
-
-  if (firstBooking.status === 'cancelled') {
-    cancelBtn.classList.add('hidden');
-  } else {
-    cancelBtn.classList.remove('hidden');
-  }
-
-// Set up button actions for this specific booking
-confirmBtn.onclick = async () => {
-  await confirmBooking(firstBooking.bookingId);
-  window.closeDetailsModal();
-};
-
-cancelBtn.onclick = async () => {
-  await cancelBookingFromAdmin(firstBooking.bookingId);
-  window.closeDetailsModal();
-};
-
-  // Show Modal
-  document.getElementById('bookingDetailsModal').classList.remove('hidden');
-}
-
-window.closeDetailsModal = function() {
-  document.getElementById('bookingDetailsModal').classList.add('hidden');
-};
-
-async function exportToCSV() {
-  const db = await getBookings();
-  const filteredBookings = db.filter(b => b.status !== 'cancelled');
-  
-  // ✅ GROUP BY ID to prevent duplicate rows for multi-hour bookings
-const uniqueBookings = {};
-
-filteredBookings.forEach(b => {
-  const key = b.bookingId || b.id;
-
-  if (!uniqueBookings[key]) {
-    uniqueBookings[key] = b;
-  }
-});
-
-const finalBookings = Object.values(uniqueBookings);
-
-  let totalEarnings = 0;
-  
-  const headers = ['ID', 'Date', 'Time', 'Court', 'Name', 'Email', 'Mobile', 'Payment', 'Paddles', 'Balls', 'Total', 'Status'];
-  
-  const rows = finalBookings.map(b => {
-let safeTotal = b.totalAmount;
-
-if (!safeTotal) {
-  safeTotal = calculateBookingTotal(b);
-}
-    
-    totalEarnings += safeTotal;
-    
-    return [
-      b.id, b.date, b.time, b.court, b.name, b.email, b.mobile, b.payment,
-      b.addons?.paddle || 0, b.addons?.ball || 0, safeTotal, b.status || 'confirmed'
-    ];
-  });
-  
-  rows.push([]);
-  rows.push(['TOTAL EARNINGS', '', '', '', '', '', '', '', '', '', `PHP ${totalEarnings}`, '']);
-  
-  const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `hiraya-bookings-${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
-  
-  const exportOptions = document.getElementById('exportOptions');
-  if (exportOptions) exportOptions.classList.add('hidden');
-}
-
-async function exportToPDF() {
-  if (!window.jspdf) {
-    alert('PDF library is loading. Please try again in a moment.');
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const db = await getBookings();
-  const filteredBookings = db.filter(b => b.status !== 'cancelled');
-  
-  // ✅ GROUP BY ID to prevent duplicate rows for multi-hour bookings
-const uniqueBookings = {};
-
-filteredBookings.forEach(b => {
-  const key = b.bookingId || b.id;
-
-  if (!uniqueBookings[key]) {
-    uniqueBookings[key] = b;
-  }
-});
-
-const finalBookings = Object.values(uniqueBookings);
-
-  let totalEarnings = 0;
-  
-  // Title
-  doc.setFontSize(20);
-  doc.setTextColor(53, 6, 62);
-  doc.text('HIRAYA PICKLEBALL', 14, 20);
-  
-  doc.setFontSize(16);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Booking Report', 14, 30);
-  
-  doc.setFontSize(10);
-  doc.setTextColor(150, 150, 150);
-  doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 38);
-  
-  // Summary
-  doc.setFontSize(12);
-  doc.setTextColor(53, 6, 62);
-  doc.text(`Total Bookings: ${finalBookings.length}`, 14, 50);
-  
-  // Table Data
-  const tableColumn = ['ID', 'Date', 'Time', 'Court', 'Customer', 'Payment', 'Total', 'Status'];
-  
-  const tableRows = finalBookings.map(booking => {
-    let safeTotal = booking.totalAmount;
-    
     if (!safeTotal) {
-      let hour = parseInt((booking.time || "00").split(':')[0]);
-      let rate = hour < 12 ? 200 : 300;
-      let duration = booking.duration || 1;
-      let addons = ((booking.addons?.paddle || 0) * 30) + ((booking.addons?.ball || 0) * 100);
-      safeTotal = (rate * duration) + addons;
+      safeTotal = calculateBookingTotal(b);
     }
-    
-    totalEarnings += safeTotal;
-    
-    return [
-      booking.id,
-      booking.date,
-      formatTime12(booking.time),
-      booking.court,
-      booking.name,
-      booking.payment.toUpperCase(),
-      `PHP ${safeTotal}`,
-      (booking.status || 'confirmed').toUpperCase()
-    ];
-  });
-  
-  doc.text(`Total Earnings: PHP ${totalEarnings}`, 14, 58);
-  
-  // Generate Table
-  doc.autoTable({
-    head: [tableColumn],
-    body: tableRows,
-    startY: 66,
-    theme: 'striped',
-    headStyles: { 
-      fillColor: [53, 6, 62],
-      textColor: 255,
-      fontStyle: 'bold'
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245]
-    }
-  });
-  
-  // Footer Page Numbers
-  const pageCount = doc.internal.getNumberOfPages();
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.setFont(undefined, 'normal');
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.text(`Page ${i} of ${pageCount}`, 14, 285);
-  }
-  
-  // Save PDF
-  doc.save(`hiraya-bookings-${new Date().toISOString().split('T')[0]}.pdf`);
-  
-  const exportOptions = document.getElementById('exportOptions');
-  if (exportOptions) exportOptions.classList.add('hidden');
-}
-
-  // ==========================================
-// EDIT BOOKING FUNCTIONS
-// ==========================================
-
-async function openEditModal(id) {
-  const db = await getBookings();
-
-  // Get all records for this booking
-  const bookings = db.filter(b => b.bookingId === id);
-
-  if (bookings.length === 0) {
-    console.error('Booking not found:', id);
-    return;
-  }
-
-  const first = bookings[0];
-  const duration = bookings.length;
-
-  function updateEditTotal() {
-    const duration = parseInt(document.getElementById('editDuration').value) || 1;
-    const paddleQty = parseInt(document.getElementById('editPaddleQty').value) || 0;
-    const ballQty = parseInt(document.getElementById('editBallQty').value) || 0;
-
-    const total = calculateBookingTotal(first);
-
-    document.getElementById('editTotalAmount').textContent = `₱${total}`;
-    document.getElementById('editDurationDisplay').textContent = duration;
-  }
-
-  // Populate Modal
-  document.getElementById('editBookingId').value = id;
-  document.getElementById('editDate').value = first.date;
-  document.getElementById('editCourt').value = first.court;
-  document.getElementById('editDuration').value = duration;
-  document.getElementById('editPaddleQty').value = first.addons?.paddle || 0;
-  document.getElementById('editBallQty').value = first.addons?.ball || 0;
-  document.getElementById('editStatus').value = first.status || 'confirmed';
-
-  // Populate Time Dropdown
-  const timeSelect = document.getElementById('editTime');
-  timeSelect.innerHTML = '';
-  const times = ["06:00", "07:00", "08:00", "09:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
-  times.forEach(t => {
-    const option = document.createElement('option');
-    option.value = t;
-    option.textContent = formatTime12(t);
-    if (t === first.time) option.selected = true;
-    timeSelect.appendChild(option);
-  });
-
-    // ... (rest of the function)
-  
-  // Update the total display
-  updateEditTotal();
-  
-  document.getElementById('editBookingModal').classList.remove('hidden');
-}
-  
-
-function closeEditModal() {
-  document.getElementById('editBookingModal').classList.add('hidden');
-}
-
-async function saveEditedBooking() {
-  const id = document.getElementById('editBookingId').value;
-  const newDate = document.getElementById('editDate').value;
-  const newTime = document.getElementById('editTime').value;
-  const newCourt = document.getElementById('editCourt').value;
-  const newDuration = parseInt(document.getElementById('editDuration').value) || 1;
-  const newPaddle = parseInt(document.getElementById('editPaddleQty').value) || 0;
-  const newBall = parseInt(document.getElementById('editBallQty').value) || 0;
-  const newStatus = document.getElementById('editStatus').value;
-
-  if (!newDate) {
-    alert('Please select a date.');
-    return;
-  }
-
-  if (!newTime) {
-    alert('Please select a start time.');
-    return;
-  }
-
-  try {
-    // ==========================================
-    // GET BOOKINGS FROM FIREBASE
-    // ==========================================
-    const db = await getBookings();
-
-    // Find ALL hourly records for this booking
-    const currentBookings = db.filter(b => b.bookingId === id);
-
-    if (currentBookings.length === 0) {
-      alert('Booking not found.');
-      console.error('Could not find booking:', id);
-      return;
+        
+        totalEarnings += safeTotal;
+        
+        return [
+          b.id, b.date, b.time, b.court, b.name, b.email, b.mobile, b.payment,
+          b.addons?.paddle || 0, b.addons?.ball || 0, safeTotal, b.status || 'confirmed'
+        ];
+      });
+      
+      rows.push([]);
+      rows.push(['TOTAL EARNINGS', '', '', '', '', '', '', '', '', '', `PHP ${totalEarnings}`, '']);
+      
+      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hiraya-bookings-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      const exportOptions = document.getElementById('exportOptions');
+      if (exportOptions) exportOptions.classList.add('hidden');
     }
 
-    // Keep the original customer information
-    const originalBooking = currentBookings[0];
-
-    // Firebase functions
-const {
-  collection,
-  getDocs,
-  query,
-  where,
-  doc,
-  writeBatch
-} = window.firebaseFunctions;
-
-    // ==========================================
-    // CHECK AVAILABILITY
-    // ==========================================
-    const startHour = parseInt(newTime.split(':')[0]);
-
-    for (let i = 0; i < newDuration; i++) {
-      const checkHour = startHour + i;
-      const checkTimeStr =
-        `${checkHour.toString().padStart(2, '0')}:00`;
-
-      const isBooked = db.some(b =>
-        b.bookingId !== id &&
-        b.date === newDate &&
-        b.court === newCourt &&
-        b.time === checkTimeStr &&
-        b.status !== 'cancelled'
-      );
-
-      if (isBooked) {
-        alert(
-          `Sorry, ${formatTime12(checkTimeStr)} on ${newDate} at ${newCourt} is already booked.`
-        );
+    async function exportToPDF() {
+      if (!window.jspdf) {
+        alert('PDF library is loading. Please try again in a moment.');
         return;
       }
-    }
 
-    // ==========================================
-    // FIND OLD FIRESTORE DOCUMENTS
-    // ==========================================
-    const q = query(
-      collection(window.db, 'bookings'),
-      where('bookingId', '==', id)
-    );
-
-    const snapshot = await getDocs(q);
-
-    console.log(`Found ${snapshot.docs.length} old records to replace.`);
-
-// ==========================================
-// ATOMICALLY REPLACE OLD BOOKING RECORDS
-// ==========================================
-
-const batch = writeBatch(window.db);
-
-// Delete all old hourly records
-snapshot.docs.forEach(document => {
-  batch.delete(
-    doc(window.db, 'bookings', document.id)
-  );
-});
-
-// Create all new hourly records
-for (let i = 0; i < newDuration; i++) {
-  const currentHour = startHour + i;
-
-  const currentTimeStr =
-    `${currentHour.toString().padStart(2, '0')}:00`;
-
-  const payload = {
-    bookingId: id,
-    date: newDate,
-    time: currentTimeStr,
-    court: newCourt,
-
-    name: originalBooking.name,
-    mobile: originalBooking.mobile,
-    email: originalBooking.email,
-    payment: originalBooking.payment,
-
-    addons: {
-      paddle: newPaddle,
-      ball: newBall
-    },
-
-    duration: newDuration,
-
-    totalAmount: calculateBookingTotal({
-      time: newTime,
-      duration: newDuration,
-      addons: {
-        paddle: newPaddle,
-        ball: newBall
-      }
-    }),
-
-    status: newStatus
-  };
-
-  const newBookingRef =
-    doc(collection(window.db, 'bookings'));
-
-  batch.set(newBookingRef, payload);
-}
-
-// Commit deletes + new records together
-await batch.commit();
-
-console.log('Booking records replaced successfully.');
-
-    // ==========================================
-    // SUCCESS
-    // ==========================================
-    alert('Booking updated successfully!');
-
-    closeEditModal();
-
-    // Reload admin table
-    await loadAdminData();
-
-  } catch (error) {
-    console.error('❌ Error updating booking:', error);
-    alert(
-      'Failed to update booking.\n\nCheck the browser console for details.'
-    );
-  }
-}
-
-// Live total calculation for Edit Modal
-function updateEditTotal() {
-  const duration = parseInt(document.getElementById('editDuration').value) || 1;
-  const paddleQty = parseInt(document.getElementById('editPaddleQty').value) || 0;
-  const ballQty = parseInt(document.getElementById('editBallQty').value) || 0;
-  const editTime = document.getElementById('editTime').value;
-
-  const startHour = parseInt(editTime.split(':')[0]);
-
-  // Calculate each booked hour separately
-  let courtPrice = 0;
-
-  for (let i = 0; i < duration; i++) {
-    const currentHour = startHour + i;
-    courtPrice += currentHour < 12 ? RATE_AM : RATE_PM;
-  }
-
-  const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-  const total = courtPrice + addonsPrice;
-
-  document.getElementById('editTotalAmount').textContent = `₱${total}`;
-  document.getElementById('editDurationDisplay').textContent = duration;
-
-  // Display the calculated court price
-  document.getElementById('editCourtRateDisplay').textContent = `₱${courtPrice}`;
-}
-
-// ==========================================
-// EMAIL NOTIFICATION FUNCTIONS (EmailJS)
-// ==========================================
-
-// 1. Notify Admin when a NEW booking is made (Customer is NOT notified yet)
-async function notifyAdminOfNewBooking(bookingData) {
-  const { id, date, time, court, duration, name, email, mobile, payment, addons, status } = bookingData;
-  // ✅ Use the saved totalAmount, or fallback to our smart calculator
-  const total = bookingData.totalAmount || calculateBookingTotal(bookingData);
-  
-  const startHour = parseInt(time.split(':')[0]);
-  const endHour = startHour + duration;
-  const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
-  const timeRange = `${formatTime12(time)} - ${formatTime12(endTimeStr)}`;
-
-  const adminParams = {
-    booking_id: id,
-    customer_name: name,
-    customer_email: email,
-    customer_mobile: mobile,
-    booking_date: date,
-    booking_time: timeRange,
-    court: court,
-    duration: duration,
-    payment_method: payment.toUpperCase(),
-    total_amount: total,
-    status: status,
-    to_email: 'vincintjude7@gmail.com', // <-- Your admin email
-    to_name: 'Hiraya Admin'
-  };
-
-  try {
-    await emailjs.send('service_i5zradf', 'template_oh45oeb', adminParams);
-    console.log('✅ Admin notification email sent successfully!');
-  } catch (error) {
-    console.error('❌ Failed to send admin email:', error);
-  }
-}
-
-// 2. Notify Customer ONLY when Admin clicks "Confirm"
-async function notifyCustomerOfConfirmation(bookingData) {
-  const bookingId = bookingData.bookingId || bookingData.id;
-
-  // Get all hourly records belonging to this booking
-  const db = await getBookings();
-
-  const bookings = db
-    .filter(b => b.bookingId === bookingId)
-    .sort((a, b) => a.time.localeCompare(b.time));
-
-  // Fallback in case records cannot be found
-  const firstBooking =
-    bookings.length > 0 ? bookings[0] : bookingData;
-
-  const lastBooking =
-    bookings.length > 0
-      ? bookings[bookings.length - 1]
-      : bookingData;
-
-  const duration =
-    bookings.length > 0
-      ? bookings.length
-      : (parseInt(bookingData.duration) || 1);
-
-  // Actual first booked hour
-  const startTime = firstBooking.time;
-
-  // Actual ending hour = last booked slot + 1 hour
-  const lastHour = parseInt(lastBooking.time.split(':')[0]);
-  const endHour = lastHour + 1;
-
-  const endTimeStr =
-    `${endHour.toString().padStart(2, '0')}:00`;
-
-  const timeRange =
-    `${formatTime12(startTime)} - ${formatTime12(endTimeStr)}`;
-
-  const total =
-    firstBooking.totalAmount ||
-    bookingData.totalAmount ||
-    calculateBookingTotal({
-      ...firstBooking,
-      duration
-    });
-
-  console.log('📧 CONFIRMATION EMAIL DATA:', {
-    bookingId,
-    storedTimes: bookings.map(b => b.time),
-    startTime,
-    endTimeStr,
-    duration,
-    timeRange
-  });
-
-  const customerParams = {
-    booking_id: bookingId,
-    customer_name: firstBooking.name,
-    booking_date: firstBooking.date,
-    booking_time: timeRange,
-    court: firstBooking.court,
-    duration: duration,
-    total_amount: total,
-    to_email: firstBooking.email,
-    to_name: firstBooking.name
-  };
-
-  try {
-    if (
-      customerParams.to_email &&
-      customerParams.to_email.includes('@')
-    ) {
-      await emailjs.send(
-        'service_i5zradf',
-        'template_hra91so',
-        customerParams
-      );
-
-      console.log(
-        '✅ Customer confirmation email sent successfully!'
-      );
-    } else {
-      console.warn(
-        '⚠️ Customer email skipped: Invalid email address.'
-      );
-    }
-  } catch (error) {
-    console.error(
-      '❌ Failed to send customer email:',
-      error
-    );
-  }
-}
-
-// ==========================================
-// DYNAMIC PRICING: AM/PM RATES (FINAL CLEAN VERSION)
-// ==========================================
-
-const RATE_AM = 200;
-const RATE_PM = 300;
-
-function isAM(timeStr) {
-  if (!timeStr) return true;
-  const hour = parseInt(timeStr.split(':')[0]);
-  return hour < 12;
-}
-
-// Universal calculator for Admin Dashboard, Emails, and Exports
-function calculateBookingTotal(data) {
-  const duration = Math.max(1, parseInt(data?.duration) || 1);
-  const startHour = parseInt((data?.time || "00:00").split(':')[0]);
-
-  let courtPrice = 0;
-
-  // Calculate EACH booked hour separately.
-  // Before 12 PM = ₱200/hour
-  // 12 PM onward = ₱300/hour
-  for (let i = 0; i < duration; i++) {
-    const hour = startHour + i;
-    courtPrice += hour < 12 ? RATE_AM : RATE_PM;
-  }
-
-  const paddleQty = Math.max(0, parseInt(data?.addons?.paddle) || 0);
-  const ballQty = Math.max(0, parseInt(data?.addons?.ball) || 0);
-
-  const addonsPrice =
-    (paddleQty * 30) +
-    (ballQty * 100);
-
-  return courtPrice + addonsPrice;
-}
-
-// Form calculator for the Customer Booking Page
-function updateFormTotal() {
-  const durationEl = document.getElementById('bookingDuration');
-  const hiddenTimeEl = document.getElementById('hiddenTime');
-
-  if (!durationEl || !hiddenTimeEl) return;
-
-  const paddleQtyEl = document.getElementById('paddleQty');
-  const ballQtyEl = document.getElementById('ballQty');
-  const addonsDisplay = document.getElementById('addonsPriceDisplay');
-  const totalDisplay = document.getElementById('grandTotalDisplay');
-
-  const duration = parseInt(durationEl.value) || 1;
-  const paddleQty = parseInt(paddleQtyEl?.textContent) || 0;
-  const ballQty = parseInt(ballQtyEl?.textContent) || 0;
-  const selectedTime = hiddenTimeEl.value;
-
-  const addonsPrice =
-    (paddleQty * 30) +
-    (ballQty * 100);
-
-  let courtPrice = 0;
-
-  if (selectedTime) {
-    const startHour = parseInt(selectedTime.split(':')[0]);
-
-    for (let i = 0; i < duration; i++) {
-      const hour = startHour + i;
-      courtPrice += hour < 12 ? RATE_AM : RATE_PM;
-    }
-  }
-
-  const total = courtPrice + addonsPrice;
-
-  if (addonsDisplay) {
-    addonsDisplay.textContent = `₱${addonsPrice}`;
-  }
-
-  if (totalDisplay) {
-    totalDisplay.textContent = `₱${total}`;
-  }
-}
-
-// Ensure totals update when page loads or duration changes
-document.addEventListener('DOMContentLoaded', () => {
-  updateFormTotal();
-  
-  const durationSelect = document.getElementById('bookingDuration');
-  if (durationSelect) {
-    durationSelect.addEventListener('change', updateFormTotal);
-  }
-
-  // Update total when add-ons change
-  document.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setTimeout(updateFormTotal, 100);
-
-
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const db = await getBookings();
+      const filteredBookings = db.filter(b => b.status !== 'cancelled');
       
-    });
-  });
+      // ✅ GROUP BY ID to prevent duplicate rows for multi-hour bookings
+    const uniqueBookings = {};
 
-  // ==========================================
-  // FLOATING NAVIGATION LOGIC
-  // ==========================================
+    filteredBookings.forEach(b => {
+      const key = b.bookingId || b.id;
 
-  
-  const floatingNav = document.getElementById('floatingNav');
-  const backToTopBtn = document.getElementById('backToTopBtn');
-
-  if (floatingNav && backToTopBtn) {
-    
-    // Show/hide based on scroll position (Smooth Fade)
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 400) {
-        floatingNav.classList.add('visible');
-      } else {
-        floatingNav.classList.remove('visible');
+      if (!uniqueBookings[key]) {
+        uniqueBookings[key] = b;
       }
     });
 
-    // Smooth scroll to top
-    backToTopBtn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    
-    // Smooth scroll for navigation dots
-    document.querySelectorAll('.nav-dot[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function(e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const finalBookings = Object.values(uniqueBookings);
+
+      let totalEarnings = 0;
+      
+      // Title
+      doc.setFontSize(20);
+      doc.setTextColor(53, 6, 62);
+      doc.text('HIRAYA PICKLEBALL', 14, 20);
+      
+      doc.setFontSize(16);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Booking Report', 14, 30);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 38);
+      
+      // Summary
+      doc.setFontSize(12);
+      doc.setTextColor(53, 6, 62);
+      doc.text(`Total Bookings: ${finalBookings.length}`, 14, 50);
+      
+      // Table Data
+      const tableColumn = ['ID', 'Date', 'Time', 'Court', 'Customer', 'Payment', 'Total', 'Status'];
+      
+      const tableRows = finalBookings.map(booking => {
+        let safeTotal = booking.totalAmount;
+        
+        if (!safeTotal) {
+          safeTotal = calculateBookingTotal(booking);
+        }
+        
+        totalEarnings += safeTotal;
+        
+        return [
+          booking.id,
+          booking.date,
+          formatTime12(booking.time),
+          booking.court,
+          booking.name,
+          booking.payment.toUpperCase(),
+          `PHP ${safeTotal}`,
+          (booking.status || 'confirmed').toUpperCase()
+        ];
+      });
+      
+      doc.text(`Total Earnings: PHP ${totalEarnings}`, 14, 58);
+      
+      // Generate Table
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 66,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [53, 6, 62],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
         }
       });
+      
+      // Footer Page Numbers
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.setFont(undefined, 'normal');
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.text(`Page ${i} of ${pageCount}`, 14, 285);
+      }
+      
+      // Save PDF
+      doc.save(`hiraya-bookings-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      const exportOptions = document.getElementById('exportOptions');
+      if (exportOptions) exportOptions.classList.add('hidden');
+    }
+
+      // ==========================================
+    // EDIT BOOKING FUNCTIONS
+    // ==========================================
+
+    async function openEditModal(id) {
+      const db = await getBookings();
+
+      // Get all records for this booking
+      const bookings = db.filter(b => b.bookingId === id);
+
+      if (bookings.length === 0) {
+        console.error('Booking not found:', id);
+        return;
+      }
+
+      const first = bookings[0];
+      const duration = bookings.length;
+
+      function updateEditTotal() {
+        const duration = parseInt(document.getElementById('editDuration').value) || 1;
+        const paddleQty = parseInt(document.getElementById('editPaddleQty').value) || 0;
+        const ballQty = parseInt(document.getElementById('editBallQty').value) || 0;
+
+        const total = calculateBookingTotal(first);
+
+        document.getElementById('editTotalAmount').textContent = `₱${total}`;
+        document.getElementById('editDurationDisplay').textContent = duration;
+      }
+
+      // Populate Modal
+      document.getElementById('editBookingId').value = id;
+      document.getElementById('editDate').value = first.date;
+      document.getElementById('editCourt').value = first.court;
+      document.getElementById('editDuration').value = duration;
+      document.getElementById('editPaddleQty').value = first.addons?.paddle || 0;
+      document.getElementById('editBallQty').value = first.addons?.ball || 0;
+      document.getElementById('editStatus').value = first.status || 'confirmed';
+
+      // Populate Time Dropdown
+      const timeSelect = document.getElementById('editTime');
+      timeSelect.innerHTML = '';
+      const times = ["06:00", "07:00", "08:00", "09:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+      times.forEach(t => {
+        const option = document.createElement('option');
+        option.value = t;
+        option.textContent = formatTime12(t);
+        if (t === first.time) option.selected = true;
+        timeSelect.appendChild(option);
+      });
+
+        // ... (rest of the function)
+      
+      // Update the total display
+      updateEditTotal();
+      
+      document.getElementById('editBookingModal').classList.remove('hidden');
+    }
+      
+
+    function closeEditModal() {
+      document.getElementById('editBookingModal').classList.add('hidden');
+    }
+
+    async function saveEditedBooking() {
+      const id = document.getElementById('editBookingId').value;
+      const newDate = document.getElementById('editDate').value;
+      const newTime = document.getElementById('editTime').value;
+      const newCourt = document.getElementById('editCourt').value;
+      const newDuration = parseInt(document.getElementById('editDuration').value) || 1;
+      const newPaddle = parseInt(document.getElementById('editPaddleQty').value) || 0;
+      const newBall = parseInt(document.getElementById('editBallQty').value) || 0;
+      const newStatus = document.getElementById('editStatus').value;
+
+      if (!newDate) {
+        alert('Please select a date.');
+        return;
+      }
+
+      if (!newTime) {
+        alert('Please select a start time.');
+        return;
+      }
+
+      try {
+        // ==========================================
+        // GET BOOKINGS FROM FIREBASE
+        // ==========================================
+        const db = await getBookings();
+
+        // Find ALL hourly records for this booking
+        const currentBookings = db.filter(b => b.bookingId === id);
+
+        if (currentBookings.length === 0) {
+          alert('Booking not found.');
+          console.error('Could not find booking:', id);
+          return;
+        }
+
+        // Keep the original customer information
+        const originalBooking = currentBookings[0];
+
+        // Firebase functions
+    const {
+      collection,
+      getDocs,
+      query,
+      where,
+      doc,
+      writeBatch
+    } = window.firebaseFunctions;
+
+        // ==========================================
+        // CHECK AVAILABILITY
+        // ==========================================
+        const startHour = parseInt(newTime.split(':')[0]);
+
+        for (let i = 0; i < newDuration; i++) {
+          const checkHour = startHour + i;
+          const checkTimeStr =
+            `${checkHour.toString().padStart(2, '0')}:00`;
+
+          const isBooked = db.some(b =>
+            b.bookingId !== id &&
+            b.date === newDate &&
+            b.court === newCourt &&
+            b.time === checkTimeStr &&
+            b.status !== 'cancelled'
+          );
+
+          if (isBooked) {
+            alert(
+              `Sorry, ${formatTime12(checkTimeStr)} on ${newDate} at ${newCourt} is already booked.`
+            );
+            return;
+          }
+        }
+
+        // ==========================================
+        // FIND OLD FIRESTORE DOCUMENTS
+        // ==========================================
+        const q = query(
+          collection(window.db, 'bookings'),
+          where('bookingId', '==', id)
+        );
+
+        const snapshot = await getDocs(q);
+
+        console.log(`Found ${snapshot.docs.length} old records to replace.`);
+
+    // ==========================================
+    // ATOMICALLY REPLACE OLD BOOKING RECORDS
+    // ==========================================
+
+    const batch = writeBatch(window.db);
+
+    // Delete all old hourly records
+    snapshot.docs.forEach(document => {
+      batch.delete(
+        doc(window.db, 'bookings', document.id)
+      );
     });
-  }
 
-  
+    // Create all new hourly records
+    for (let i = 0; i < newDuration; i++) {
+      const currentHour = startHour + i;
 
-});
+      const currentTimeStr =
+        `${currentHour.toString().padStart(2, '0')}:00`;
 
-// ==========================================
-// UNIVERSAL BOOKING TOTAL CALCULATOR
-// ==========================================
-function calculateBookingTotal(data) {
-  // 1. If the booking already has a saved totalAmount, trust it!
-  if (data.totalAmount) {
-    return data.totalAmount;
-  }
+      const payload = {
+        bookingId: id,
+        date: newDate,
+        time: currentTimeStr,
+        court: newCourt,
 
-  // 2. Fallback: Calculate dynamically for older bookings or email data
-  let hourlyRate = 300; // Default PM
-  const timeLower = (data.time || "").toLowerCase();
-  const hour = parseInt((data.time || "00:00").split(':')[0]);
-  
-  if ((timeLower.includes('am') && !timeLower.includes('12:00')) || (hour < 12 && !timeLower.includes('pm'))) {
-    hourlyRate = 200; // AM Rate
-  }
+        name: originalBooking.name,
+        mobile: originalBooking.mobile,
+        email: originalBooking.email,
+        payment: originalBooking.payment,
 
-  const duration = data.duration || 1;
-  const courtPrice = hourlyRate * duration;
-  const paddleQty = data.addons?.paddle || 0;
-  const ballQty = data.addons?.ball || 0;
-  const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-  
-  return courtPrice + addonsPrice;
-}
+        addons: {
+          paddle: newPaddle,
+          ball: newBall
+        },
 
-// Function to get current rate based on selected time
-function getCurrentRate() {
-  const hiddenTime = document.getElementById('hiddenTime');
-  const selectedSlot = document.getElementById('selectedSlotDisplay');
-  
-  if (hiddenTime && hiddenTime.value) {
-    return isAM(hiddenTime.value) ? RATE_AM : RATE_PM;
-  }
-  
-  if (selectedSlot && selectedSlot.value) {
-    return isAM(selectedSlot.value) ? RATE_AM : RATE_PM;
-  }
-  
-  // Default to AM rate if nothing selected
-  return RATE_AM;
-}
+        duration: newDuration,
 
-// Function to update rate display based on filter
-function updateRateDisplay() {
-  const amDisplay = document.getElementById('amRateDisplay');
-  const pmDisplay = document.getElementById('pmRateDisplay');
-  const activeFilter = document.querySelector('.filter-btn.active');
-  
-  if (!amDisplay || !pmDisplay) return;
-  
-  if (activeFilter && activeFilter.dataset.filter === 'pm') {
-    amDisplay.classList.remove('active');
-    pmDisplay.classList.add('active');
-  } else {
-    amDisplay.classList.add('active');
-    pmDisplay.classList.remove('active');
-  }
-}
+        totalAmount: calculateBookingTotal({
+          time: newTime,
+          duration: newDuration,
+          addons: {
+            paddle: newPaddle,
+            ball: newBall
+          }
+        }),
 
-// Update the booking total calculation
-function updateBookingTotal() {
-  const duration = parseInt(document.getElementById('bookingDuration')?.value || 1);
-  const paddleQty = parseInt(document.getElementById('paddleQty')?.textContent || 0);
-  const ballQty = parseInt(document.getElementById('ballQty')?.textContent || 0);
-  
-  // Get the correct rate based on the selected time
-  const hourlyRate = getCurrentRate();
-  const courtPrice = hourlyRate * duration;
-  const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-  const total = courtPrice + addonsPrice;
-  
-  // Update displays
-  const addonsDisplay = document.getElementById('addonsPriceDisplay');
-  const totalDisplay = document.getElementById('grandTotalDisplay');
-  
-  if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
-  if (totalDisplay) totalDisplay.textContent = `₱${total}`;
-  
-  // Also update the review modal if it exists
-  const revTotal = document.getElementById('rev-total');
-  if (revTotal) revTotal.textContent = `₱${total}`;
-  
-  return total;
-}
+        status: newStatus
+      };
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-  // Add event listeners to filter buttons
-  const filterButtons = document.querySelectorAll('.filter-btn');
-  filterButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      setTimeout(() => {
-        updateRateDisplay();
-      }, 100);
+      const newBookingRef =
+        doc(collection(window.db, 'bookings'));
+
+      batch.set(newBookingRef, payload);
+    }
+
+    // Commit deletes + new records together
+    await batch.commit();
+
+    console.log('Booking records replaced successfully.');
+
+        // ==========================================
+        // SUCCESS
+        // ==========================================
+        alert('Booking updated successfully!');
+
+        closeEditModal();
+
+        // Reload admin table
+        await loadAdminData();
+
+      } catch (error) {
+        console.error('❌ Error updating booking:', error);
+        alert(
+          'Failed to update booking.\n\nCheck the browser console for details.'
+        );
+      }
+    }
+
+    // Live total calculation for Edit Modal
+    function updateEditTotal() {
+      const duration = parseInt(document.getElementById('editDuration').value) || 1;
+      const paddleQty = parseInt(document.getElementById('editPaddleQty').value) || 0;
+      const ballQty = parseInt(document.getElementById('editBallQty').value) || 0;
+      const editTime = document.getElementById('editTime').value;
+
+      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
+      const total = calculateBookingTotal({
+        time: editTime,
+        duration,
+        addons: { paddle: paddleQty, ball: ballQty }
+      });
+      const courtPrice = total - addonsPrice;
+
+      document.getElementById('editTotalAmount').textContent = `₱${total}`;
+      document.getElementById('editDurationDisplay').textContent = duration;
+
+      // Display the calculated court price
+      document.getElementById('editCourtRateDisplay').textContent = `₱${courtPrice}`;
+    }
+
+    // ==========================================
+    // EMAIL NOTIFICATION FUNCTIONS (EmailJS)
+    // ==========================================
+
+    // 1. Notify Admin when a NEW booking is made (Customer is NOT notified yet)
+    async function notifyAdminOfNewBooking(bookingData) {
+      const { id, date, time, court, duration, name, email, mobile, payment, addons, status } = bookingData;
+      // ✅ Use the saved totalAmount, or fallback to our smart calculator
+      const total = bookingData.totalAmount || calculateBookingTotal(bookingData);
+      
+      const startHour = parseInt(time.split(':')[0]);
+      const endHour = startHour + duration;
+      const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
+      const timeRange = `${formatTime12(time)} - ${formatTime12(endTimeStr)}`;
+
+      const adminParams = {
+        booking_id: id,
+        customer_name: name,
+        customer_email: email,
+        customer_mobile: mobile,
+        booking_date: date,
+        booking_time: timeRange,
+        court: court,
+        duration: duration,
+        payment_method: payment.toUpperCase(),
+        total_amount: total,
+        status: status,
+        to_email: 'vincintjude7@gmail.com', // <-- Your admin email
+        to_name: 'Hiraya Admin'
+      };
+
+      try {
+        await emailjs.send('service_i5zradf', 'template_oh45oeb', adminParams);
+        console.log('✅ Admin notification email sent successfully!');
+      } catch (error) {
+        console.error('❌ Failed to send admin email:', error);
+      }
+    }
+
+    // 2. Notify Customer ONLY when Admin clicks "Confirm"
+    async function notifyCustomerOfConfirmation(bookingData) {
+      const bookingId = bookingData.bookingId || bookingData.id;
+
+      // Get all hourly records belonging to this booking
+      const db = await getBookings();
+
+      const bookings = db
+        .filter(b => b.bookingId === bookingId)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      // Fallback in case records cannot be found
+      const firstBooking =
+        bookings.length > 0 ? bookings[0] : bookingData;
+
+      const lastBooking =
+        bookings.length > 0
+          ? bookings[bookings.length - 1]
+          : bookingData;
+
+      const duration =
+        bookings.length > 0
+          ? bookings.length
+          : (parseInt(bookingData.duration) || 1);
+
+      // Actual first booked hour
+      const startTime = firstBooking.time;
+
+      // Actual ending hour = last booked slot + 1 hour
+      const lastHour = parseInt(lastBooking.time.split(':')[0]);
+      const endHour = lastHour + 1;
+
+      const endTimeStr =
+        `${endHour.toString().padStart(2, '0')}:00`;
+
+      const timeRange =
+        `${formatTime12(startTime)} - ${formatTime12(endTimeStr)}`;
+
+      const total =
+        firstBooking.totalAmount ||
+        bookingData.totalAmount ||
+        calculateBookingTotal({
+          ...firstBooking,
+          duration
+        });
+
+      console.log('📧 CONFIRMATION EMAIL DATA:', {
+        bookingId,
+        storedTimes: bookings.map(b => b.time),
+        startTime,
+        endTimeStr,
+        duration,
+        timeRange
+      });
+
+      const customerParams = {
+        booking_id: bookingId,
+        customer_name: firstBooking.name,
+        booking_date: firstBooking.date,
+        booking_time: timeRange,
+        court: firstBooking.court,
+        duration: duration,
+        total_amount: total,
+        to_email: firstBooking.email,
+        to_name: firstBooking.name
+      };
+
+      try {
+        if (
+          customerParams.to_email &&
+          customerParams.to_email.includes('@')
+        ) {
+          await emailjs.send(
+            'service_i5zradf',
+            'template_hra91so',
+            customerParams
+          );
+
+          console.log(
+            '✅ Customer confirmation email sent successfully!'
+          );
+        } else {
+          console.warn(
+            '⚠️ Customer email skipped: Invalid email address.'
+          );
+        }
+      } catch (error) {
+        console.error(
+          '❌ Failed to send customer email:',
+          error
+        );
+      }
+    }
+
+    // ==========================================
+    // DYNAMIC PRICING: AM/PM RATES (FINAL CLEAN VERSION)
+    // ==========================================
+
+    const RATE_AM = 200;
+    const RATE_PM = 300;
+
+    function isAM(timeStr) {
+      if (!timeStr) return true;
+      const hour = parseInt(timeStr.split(':')[0]);
+     return hour < 18;
+    }
+
+
+    // Universal calculator for Admin Dashboard, Emails, Booking Page, and Exports
+    // Every hourly block before 6 PM costs ₱200; every block from 6 PM onward costs ₱300.
+    function calculateBookingTotal(data) {
+      const duration = Math.max(1, parseInt(data?.duration) || 1);
+      const startHour = parseInt((data?.time || "00:00").split(':')[0]);
+
+      let courtPrice = 0;
+
+      for (let i = 0; i < duration; i++) {
+        const currentHour = startHour + i;
+        courtPrice += currentHour < 18 ? RATE_AM : RATE_PM;
+      }
+
+      const paddleQty = Math.max(0, parseInt(data?.addons?.paddle) || 0);
+      const ballQty = Math.max(0, parseInt(data?.addons?.ball) || 0);
+      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
+
+      return courtPrice + addonsPrice;
+    }
+
+    // Ensure totals update when page loads or duration changes
+    document.addEventListener('DOMContentLoaded', () => {
+      updateFormTotal();
+      
+      const durationSelect = document.getElementById('bookingDuration');
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateFormTotal);
+      }
+
+      // Update total when add-ons change
+      document.querySelectorAll('.qty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setTimeout(updateFormTotal, 100);
+
+
+          
+        });
+      });
+
+      // ==========================================
+      // FLOATING NAVIGATION LOGIC
+      // ==========================================
+
+      
+      const floatingNav = document.getElementById('floatingNav');
+      const backToTopBtn = document.getElementById('backToTopBtn');
+
+      if (floatingNav && backToTopBtn) {
+        
+        // Show/hide based on scroll position (Smooth Fade)
+        window.addEventListener('scroll', () => {
+          if (window.scrollY > 400) {
+            floatingNav.classList.add('visible');
+          } else {
+            floatingNav.classList.remove('visible');
+          }
+        });
+
+        // Smooth scroll to top
+        backToTopBtn.addEventListener('click', () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        
+        // Smooth scroll for navigation dots
+        document.querySelectorAll('.nav-dot[href^="#"]').forEach(anchor => {
+          anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
+        });
+      }
+
+      
+
     });
-  });
-  
-  // Update total when duration changes
-  const durationSelect = document.getElementById('bookingDuration');
-  if (durationSelect) {
-    durationSelect.addEventListener('change', updateBookingTotal);
-  }
-  
-  // Update total when add-ons change (this should already exist in your code)
-  const qtyButtons = document.querySelectorAll('.qty-btn');
-  qtyButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      setTimeout(() => {
-        updateBookingTotal();
-      }, 100);
+
+    // Function to get current rate based on selected time
+    function getCurrentRate() {
+      const hiddenTime = document.getElementById('hiddenTime');
+      const selectedSlot = document.getElementById('selectedSlotDisplay');
+      
+      if (hiddenTime && hiddenTime.value) {
+        return isAM(hiddenTime.value) ? RATE_AM : RATE_PM;
+      }
+      
+      if (selectedSlot && selectedSlot.value) {
+        return isAM(selectedSlot.value) ? RATE_AM : RATE_PM;
+      }
+      
+      // Default to AM rate if nothing selected
+      return RATE_AM;
+    }
+
+    // Function to update rate display based on filter
+    function updateRateDisplay() {
+      const amDisplay = document.getElementById('amRateDisplay');
+      const pmDisplay = document.getElementById('pmRateDisplay');
+      const activeFilter = document.querySelector('.filter-btn.active');
+      
+      if (!amDisplay || !pmDisplay) return;
+      
+      if (activeFilter && activeFilter.dataset.filter === 'pm') {
+        amDisplay.classList.remove('active');
+        pmDisplay.classList.add('active');
+      } else {
+        amDisplay.classList.add('active');
+        pmDisplay.classList.remove('active');
+      }
+    }
+
+    // Update the booking total calculation
+    function updateBookingTotal() {
+      const duration = parseInt(document.getElementById('bookingDuration')?.value || 1);
+      const paddleQty = parseInt(document.getElementById('paddleQty')?.textContent || 0);
+      const ballQty = parseInt(document.getElementById('ballQty')?.textContent || 0);
+      const selectedTime = document.getElementById('hiddenTime')?.value || '';
+
+      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
+      const total = selectedTime
+        ? calculateBookingTotal({
+            time: selectedTime,
+            duration,
+            addons: { paddle: paddleQty, ball: ballQty }
+          })
+        : addonsPrice;
+
+      const addonsDisplay = document.getElementById('addonsPriceDisplay');
+      const totalDisplay = document.getElementById('grandTotalDisplay');
+
+      if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
+      if (totalDisplay) totalDisplay.textContent = `₱${total}`;
+
+      const revTotal = document.getElementById('rev-total');
+      if (revTotal) revTotal.textContent = `₱${total}`;
+
+      return total;
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Add event listeners to filter buttons
+      const filterButtons = document.querySelectorAll('.filter-btn');
+      filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setTimeout(() => {
+            updateRateDisplay();
+          }, 100);
+        });
+      });
+      
+      // Update total when duration changes
+      const durationSelect = document.getElementById('bookingDuration');
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateBookingTotal);
+      }
+      
+      // Update total when add-ons change (this should already exist in your code)
+      const qtyButtons = document.querySelectorAll('.qty-btn');
+      qtyButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setTimeout(() => {
+            updateBookingTotal();
+          }, 100);
+        });
+      });
     });
-  });
-});
 
 
 
-// Add event listeners for real-time updates
-document.addEventListener('DOMContentLoaded', () => {
-  // Update total when duration changes
-  const durationSelect = document.getElementById('bookingDuration');
-  if (durationSelect) {
-    durationSelect.addEventListener('change', updateBookingTotal);
-  }
-  
-  // Update total when add-ons change
-  const paddleQtyEl = document.getElementById('paddleQty');
-  const ballQtyEl = document.getElementById('ballQty');
-  
-  if (paddleQtyEl && ballQtyEl) {
-    // The existing +/- buttons should already trigger updates
-    // This ensures the total updates correctly
-  }
-});
+    // Add event listeners for real-time updates
+    document.addEventListener('DOMContentLoaded', () => {
+      // Update total when duration changes
+      const durationSelect = document.getElementById('bookingDuration');
+      if (durationSelect) {
+        durationSelect.addEventListener('change', updateBookingTotal);
+      }
+      
+      // Update total when add-ons change
+      const paddleQtyEl = document.getElementById('paddleQty');
+      const ballQtyEl = document.getElementById('ballQty');
+      
+      if (paddleQtyEl && ballQtyEl) {
+        // The existing +/- buttons should already trigger updates
+        // This ensures the total updates correctly
+      }
+    });
