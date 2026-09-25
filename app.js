@@ -393,19 +393,29 @@
 
       const settings = await getFacilitySettingsFromFirestore();
 
-      const {
-        collection,
-        getDocs
-      } = window.firebaseFunctions;
+let closures = [];
 
-      const closuresSnapshot = await getDocs(
-        collection(window.db, 'scheduledClosures')
-      );
+try {
+  await waitForFirebase();
 
-      const closures = closuresSnapshot.docs.map(document => ({
-        id: document.id,
-        ...document.data()
-      }));
+  if (window.db && window.firebaseFunctions) {
+    const { collection, getDocs } = window.firebaseFunctions;
+
+    const closuresSnapshot = await getDocs(
+      collection(window.db, 'scheduledClosures')
+    );
+
+    closures = closuresSnapshot.docs.map(document => ({
+      id: document.id,
+      ...document.data()
+    }));
+  }
+} catch (error) {
+  console.error('Error loading scheduled closures:', error);
+
+  // Continue loading the schedule even if closures fail.
+  closures = [];
+}
 
       let html = '<div class="calendar-cell calendar-header"></div>';
       
@@ -614,19 +624,28 @@
 
      const facilitySettings = await getFacilitySettingsFromFirestore();
 
-    const {
-      collection,
-      getDocs
-    } = window.firebaseFunctions;
+let scheduledClosures = [];
+
+try {
+  await waitForFirebase();
+
+  if (window.db && window.firebaseFunctions) {
+    const { collection, getDocs } = window.firebaseFunctions;
 
     const closuresSnapshot = await getDocs(
       collection(window.db, 'scheduledClosures')
     );
 
-    const scheduledClosures = closuresSnapshot.docs.map(document => ({
+    scheduledClosures = closuresSnapshot.docs.map(document => ({
       id: document.id,
       ...document.data()
     }));
+  }
+} catch (error) {
+  console.error('Error loading scheduled closures:', error);
+
+  scheduledClosures = [];
+}
 
       let html = '';
 
