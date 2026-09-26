@@ -347,6 +347,7 @@
       }
 
       updateFormTotal();
+      syncDurationChoices();
     }
 
     // ==========================================
@@ -496,6 +497,128 @@
       return TIME_SLOTS;
     }
 
+    // ==========================================
+    // MODERN BOOKING CHECKOUT UI HELPERS
+    // ==========================================
+    function formatBookingDateDisplay(dateStr) {
+      if (!dateStr) return '—';
+
+      const date = new Date(`${dateStr}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return dateStr;
+
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function getBookingEndTime(startTime, duration) {
+      if (!startTime) return '';
+
+      const startHour = parseInt(startTime.split(':')[0], 10);
+      if (Number.isNaN(startHour)) return '';
+
+      const endHour = startHour + Math.max(1, parseInt(duration, 10) || 1);
+      return `${String(endHour).padStart(2, '0')}:00`;
+    }
+
+    function syncDurationChoices() {
+      const durationSelect = document.getElementById('bookingDuration');
+      if (!durationSelect) return;
+
+      const selectedDuration = durationSelect.value || '1';
+      const currentLabel = document.getElementById('durationCurrentLabel');
+      const summaryDuration = document.getElementById('summaryDurationText');
+
+      document.querySelectorAll('.duration-choice').forEach(button => {
+        const value = button.dataset.duration;
+        const option = Array.from(durationSelect.options)
+          .find(item => item.value === value);
+
+        const isActive = value === selectedDuration;
+        const isDisabled = option ? option.disabled : false;
+
+        button.classList.toggle('active', isActive);
+        button.classList.toggle('disabled', isDisabled);
+        button.disabled = isDisabled;
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+
+      const durationNumber = Math.max(1, parseInt(selectedDuration, 10) || 1);
+      const durationText = `${durationNumber} ${durationNumber === 1 ? 'hour' : 'hours'}`;
+
+      if (currentLabel) currentLabel.textContent = durationText;
+      if (summaryDuration) summaryDuration.textContent = durationText;
+    }
+
+    function updateBookingReservationUI() {
+      const date = document.getElementById('hiddenDate')?.value || '';
+      const time = document.getElementById('hiddenTime')?.value || '';
+      const court = document.getElementById('hiddenCourt')?.value || '';
+      const duration =
+        Math.max(1, parseInt(document.getElementById('bookingDuration')?.value, 10) || 1);
+
+      const reservationCard = document.getElementById('selectedReservationCard');
+      const emptyState = document.getElementById('selectedSlotEmptyState');
+      const details = document.getElementById('selectedSlotDetails');
+      const clearButton = document.getElementById('clearSlotBtn');
+      const dateDisplay = document.getElementById('selectedDateVisual');
+      const timeDisplay = document.getElementById('selectedTimeVisual');
+      const courtDisplay = document.getElementById('selectedCourtVisual');
+      const summarySlot = document.getElementById('summarySlotLabel');
+
+      const hasSelection = Boolean(date && time && court);
+
+      // When no court is selected, restore all duration choices so the next
+      // selection starts from a clean state.
+      if (!hasSelection) {
+        const durationSelect = document.getElementById('bookingDuration');
+        if (durationSelect) {
+          Array.from(durationSelect.options).forEach(option => {
+            option.disabled = false;
+          });
+        }
+      }
+
+      if (reservationCard) {
+        reservationCard.classList.toggle('is-empty', !hasSelection);
+        reservationCard.classList.toggle('has-selection', hasSelection);
+      }
+
+      if (emptyState) emptyState.classList.toggle('hidden', hasSelection);
+      if (details) details.classList.toggle('hidden', !hasSelection);
+      if (clearButton) clearButton.disabled = !hasSelection;
+
+      if (hasSelection) {
+        const endTime = getBookingEndTime(time, duration);
+        const timeRange = endTime
+          ? `${formatTime12(time)} – ${formatTime12(endTime)}`
+          : formatTime12(time);
+
+        if (dateDisplay) dateDisplay.textContent = formatBookingDateDisplay(date);
+        if (timeDisplay) timeDisplay.textContent = timeRange;
+        if (courtDisplay) courtDisplay.textContent = court;
+
+        if (summarySlot) {
+          summarySlot.textContent =
+            `${court} · ${formatBookingDateDisplay(date)} · ${timeRange}`;
+        }
+      } else {
+        if (dateDisplay) dateDisplay.textContent = '—';
+        if (timeDisplay) timeDisplay.textContent = '—';
+        if (courtDisplay) courtDisplay.textContent = '—';
+
+        if (summarySlot) {
+          summarySlot.textContent =
+            'Select a court to calculate your reservation.';
+        }
+      }
+
+      syncDurationChoices();
+    }
+
     // Form calculator for the Customer Booking Page (Safe for Admin Page too)
     function updateFormTotal() {
       const durationEl = document.getElementById('bookingDuration');
@@ -505,6 +628,7 @@
 
       const paddleQtyEl = document.getElementById('paddleQty');
       const ballQtyEl = document.getElementById('ballQty');
+      const courtDisplay = document.getElementById('courtPriceDisplay');
       const addonsDisplay = document.getElementById('addonsPriceDisplay');
       const totalDisplay = document.getElementById('grandTotalDisplay');
 
@@ -515,6 +639,14 @@
 
       const addonsPrice = (paddleQty * 30) + (ballQty * 100);
 
+      const courtPrice = selectedTime
+        ? calculateBookingTotal({
+            time: selectedTime,
+            duration,
+            addons: { paddle: 0, ball: 0 }
+          })
+        : 0;
+
       const total = selectedTime
         ? calculateBookingTotal({
             time: selectedTime,
@@ -523,14 +655,18 @@
           })
         : addonsPrice;
 
+      if (courtDisplay) courtDisplay.textContent = `₱${courtPrice}`;
       if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
       if (totalDisplay) totalDisplay.textContent = `₱${total}`;
 
       const revTotal = document.getElementById('rev-total');
       if (revTotal) revTotal.textContent = `₱${total}`;
 
+      updateBookingReservationUI();
+
       return total;
     }
+
     // ==========================================
     // CALENDAR RENDERING
     // ==========================================
@@ -733,7 +869,9 @@
 
       // Recalculate the total and restrict duration when Open Play applies.
       updateFormTotal();
-      updateDurationOptionsForOpenPlay(date, time, court);
+      updateDurationOptionsForOpenPlay(date, time, court).then(() => {
+        updateBookingReservationUI();
+      });
     }
 
     // ==========================================
@@ -789,8 +927,24 @@
       // Duration Dropdown Logic
       const durationSelect = document.getElementById('bookingDuration');
       if (durationSelect) {
-        durationSelect.addEventListener('change', updateFormTotal);
+        durationSelect.addEventListener('change', () => {
+          updateFormTotal();
+          syncDurationChoices();
+        });
       }
+
+      // Modern duration choice buttons. The hidden select remains the source of truth.
+      document.querySelectorAll('.duration-choice').forEach(button => {
+        button.addEventListener('click', () => {
+          if (!durationSelect || button.disabled) return;
+
+          durationSelect.value = button.dataset.duration;
+          durationSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+
+      syncDurationChoices();
+      updateBookingReservationUI();
 
           // Clear Slot Button Logic
       const clearSlotBtn = document.getElementById('clearSlotBtn');
@@ -802,8 +956,9 @@
           document.getElementById('hiddenCourt').value = '';
           clearSlotBtn.disabled = true;
           
-          // Reset the total price to 0 when slot is cleared
-          updateFormTotal(); 
+          // Reset totals and the modern reservation summary.
+          updateFormTotal();
+          updateBookingReservationUI();
           renderMobileSchedule(); // Refresh mobile view
         });
       }
@@ -1018,6 +1173,7 @@
           document.getElementById('paddleQty').textContent = '0';
           document.getElementById('ballQty').textContent = '0';
           updateFormTotal();
+          updateBookingReservationUI();
           renderCalendar();
           renderMobileSchedule(); // Update mobile view after booking
         });
@@ -2622,30 +2778,7 @@
 
     // Update the booking total calculation
     function updateBookingTotal() {
-      const duration = parseInt(document.getElementById('bookingDuration')?.value || 1);
-      const paddleQty = parseInt(document.getElementById('paddleQty')?.textContent || 0);
-      const ballQty = parseInt(document.getElementById('ballQty')?.textContent || 0);
-      const selectedTime = document.getElementById('hiddenTime')?.value || '';
-
-      const addonsPrice = (paddleQty * 30) + (ballQty * 100);
-      const total = selectedTime
-        ? calculateBookingTotal({
-            time: selectedTime,
-            duration,
-            addons: { paddle: paddleQty, ball: ballQty }
-          })
-        : addonsPrice;
-
-      const addonsDisplay = document.getElementById('addonsPriceDisplay');
-      const totalDisplay = document.getElementById('grandTotalDisplay');
-
-      if (addonsDisplay) addonsDisplay.textContent = `₱${addonsPrice}`;
-      if (totalDisplay) totalDisplay.textContent = `₱${total}`;
-
-      const revTotal = document.getElementById('rev-total');
-      if (revTotal) revTotal.textContent = `₱${total}`;
-
-      return total;
+      return updateFormTotal();
     }
 
     // Initialize on page load

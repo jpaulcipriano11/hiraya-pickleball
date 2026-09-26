@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hiraya Pickleball - Book Your Court</title>
-  <link rel="stylesheet" href="style.css?v=20260926-openplay-2">
+  <link rel="stylesheet" href="style.css?v=20260926-booking-layout-fix-1">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="favicon.png">
 </head>
@@ -240,112 +240,278 @@
     </div>
   </section>
 
-  <!-- Booking Form -->
-  <section class="booking-form-section">
+  <!-- Modern Booking Checkout -->
+  <section class="booking-form-section modern-booking-section">
     <div class="container">
-      <div class="form-card">
-        <h2>Complete Your Booking</h2>
+      <div class="form-card booking-checkout-card">
+        <div class="booking-checkout-heading">
+          <div>
+            <span class="booking-eyebrow">COURT CHECKOUT</span>
+            <h2>Complete Your Booking</h2>
+            <p>Confirm your court, add your details, then review everything before submitting.</p>
+          </div>
+          <div class="booking-heading-badge">
+            <span class="booking-heading-dot"></span>
+            Secure reservation
+          </div>
+        </div>
+
         <form id="bookingForm">
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" id="customerName" placeholder="Juan Dela Cruz" required>
-            </div>
-            <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" id="customerMobile" placeholder="09171234567" pattern="[0-9]{11}" required>
-            </div>
-            <div class="form-group">
-              <label>Email Address</label>
-              <input type="email" id="customerEmail" placeholder="juan@email.com" required>
-            </div>
-         <div class="form-group">
-  <label>Selected Slot</label>
-  <div class="slot-display-wrapper">
-    <input type="text" id="selectedSlotDisplay" placeholder="Click a slot above" readonly required>
-    <button type="button" id="clearSlotBtn" class="btn-clear-slot">Clear Slot</button>
-  </div>
-  <input type="hidden" id="hiddenDate">
-  <input type="hidden" id="hiddenTime">
-  <input type="hidden" id="hiddenCourt">
-</div>
+          <div class="booking-checkout-grid">
 
-<div class="form-group">
-  <label>Duration of Booking</label>
-  <select id="bookingDuration">
-    <option value="1">1 Hour</option>
-    <option value="2">2 Hours</option>
-    <option value="3">3 Hours</option>
-    <option value="4">4 Hours</option>
-  </select>
-</div>
-          </div>
+            <!-- LEFT: DETAILS -->
+            <div class="booking-main-column">
 
-          <div class="form-group">
-  <label>Add-ons (Optional)</label>
-  
-  <div class="addons-grid">
-    <!-- Paddle Rental -->
-    <div class="addon-card">
-      <div class="addon-info">
-        <strong>Paddle Rental</strong>
-        <span>₱30 / paddle</span>
-      </div>
-      <div class="qty-control">
-        <button type="button" class="qty-btn minus" data-type="paddle">-</button>
-        <span class="qty-display" id="paddleQty">0</span>
-        <button type="button" class="qty-btn plus" data-type="paddle">+</button>
-      </div>
-    </div>
-
-    <!-- Ball Purchase -->
-    <div class="addon-card">
-      <div class="addon-info">
-        <strong>Ball Purchase</strong>
-        <span>₱100 / ball</span>
-      </div>
-      <div class="qty-control">
-        <button type="button" class="qty-btn minus" data-type="ball">-</button>
-        <span class="qty-display" id="ballQty">0</span>
-        <button type="button" class="qty-btn plus" data-type="ball">+</button>
-      </div>
-    </div>
-  </div>
-  
-    <!-- Add-ons and Grand Total Display -->
-  <div class="addon-total-display">
-    <div class="total-row">
-      <span class="total-label">Add-ons:</span>
-      <span class="total-value" id="addonsPriceDisplay">₱0</span>
-    </div>
-    <div class="total-row grand-total">
-      <span class="total-label">Total:</span>
-      <span class="total-value" id="grandTotalDisplay">₱0</span>
-    </div>
-  </div>
-</div>
-   <div class="form-group">
-            <label>Payment Method</label>
-            <div class="payment-options">
-              <label class="radio-card">
-                <input type="radio" name="payment" value="gcash" checked>
-                <div class="card-content">
-                  <strong>GCash QR Code</strong>
-                  <span>Pay now online</span>
+              <section class="booking-panel customer-panel">
+                <div class="booking-panel-heading">
+                  <span class="booking-step-number">01</span>
+                  <div>
+                    <h3>Your details</h3>
+                    <p>Where should we send your booking confirmation?</p>
+                  </div>
                 </div>
-              </label>
-              <label class="radio-card">
-                <input type="radio" name="payment" value="venue">
-                <div class="card-content">
-                  <strong>Pay on Venue</strong>
-                  <span>Cash upon arrival</span>
-                </div>
-              </label>
-            </div>
-          </div>
 
-          <button type="submit" class="btn-confirm">Confirm Booking</button>
+                <div class="customer-fields-grid">
+                  <div class="form-group">
+                    <label for="customerName">Full Name</label>
+                    <div class="modern-input-shell">
+                      <span class="field-icon" aria-hidden="true">👤</span>
+                      <input type="text" id="customerName" placeholder="Juan Dela Cruz" required>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customerMobile">Phone Number</label>
+                    <div class="modern-input-shell">
+                      <span class="field-icon" aria-hidden="true">☎</span>
+                      <input type="tel" id="customerMobile" placeholder="09171234567" pattern="[0-9]{11}" required>
+                    </div>
+                  </div>
+
+                  <div class="form-group customer-email-field">
+                    <label for="customerEmail">Email Address</label>
+                    <div class="modern-input-shell">
+                      <span class="field-icon" aria-hidden="true">✉</span>
+                      <input type="email" id="customerEmail" placeholder="juan@email.com" required>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="booking-panel reservation-panel">
+                <div class="booking-panel-heading reservation-heading-row">
+                  <div class="booking-panel-heading-main">
+                    <span class="booking-step-number">02</span>
+                    <div>
+                      <h3>Your reservation</h3>
+                      <p>Your selected court appears here in full.</p>
+                    </div>
+                  </div>
+                  <button type="button" id="clearSlotBtn" class="btn-change-slot" disabled>
+                    Clear selection
+                  </button>
+                </div>
+
+                <div class="selected-reservation-card is-empty" id="selectedReservationCard">
+                  <div class="slot-empty-state" id="selectedSlotEmptyState">
+                    <div class="slot-empty-icon">🎾</div>
+                    <div>
+                      <strong>No court selected yet</strong>
+                      <span>Choose an available slot from the calendar above.</span>
+                    </div>
+                  </div>
+
+                  <div class="reservation-details-grid hidden" id="selectedSlotDetails">
+                    <div class="reservation-detail">
+                      <span class="reservation-detail-icon">📅</span>
+                      <div>
+                        <span class="reservation-detail-label">Date</span>
+                        <strong id="selectedDateVisual">—</strong>
+                      </div>
+                    </div>
+
+                    <div class="reservation-detail">
+                      <span class="reservation-detail-icon">🕒</span>
+                      <div>
+                        <span class="reservation-detail-label">Time</span>
+                        <strong id="selectedTimeVisual">—</strong>
+                      </div>
+                    </div>
+
+                    <div class="reservation-detail reservation-court-detail">
+                      <span class="reservation-detail-icon">🎾</span>
+                      <div>
+                        <span class="reservation-detail-label">Court</span>
+                        <strong id="selectedCourtVisual">—</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Existing JS still uses this complete text value for the review modal. -->
+                <input type="hidden" id="selectedSlotDisplay">
+                <input type="hidden" id="hiddenDate">
+                <input type="hidden" id="hiddenTime">
+                <input type="hidden" id="hiddenCourt">
+
+                <div class="duration-block">
+                  <div class="duration-block-heading">
+                    <div>
+                      <span class="booking-mini-label">DURATION</span>
+                      <h4>How long are you playing?</h4>
+                    </div>
+                    <span class="duration-current-label" id="durationCurrentLabel">1 hour</span>
+                  </div>
+
+                  <div class="duration-choice-grid" id="durationChoices" role="group" aria-label="Booking duration">
+                    <button type="button" class="duration-choice active" data-duration="1" aria-pressed="true">
+                      <strong>1</strong><span>Hour</span>
+                    </button>
+                    <button type="button" class="duration-choice" data-duration="2" aria-pressed="false">
+                      <strong>2</strong><span>Hours</span>
+                    </button>
+                    <button type="button" class="duration-choice" data-duration="3" aria-pressed="false">
+                      <strong>3</strong><span>Hours</span>
+                    </button>
+                    <button type="button" class="duration-choice" data-duration="4" aria-pressed="false">
+                      <strong>4</strong><span>Hours</span>
+                    </button>
+                  </div>
+
+                  <!-- Kept as the source of truth for the existing booking logic. -->
+                  <select id="bookingDuration" class="duration-select-native" tabindex="-1" aria-hidden="true">
+                    <option value="1">1 Hour</option>
+                    <option value="2">2 Hours</option>
+                    <option value="3">3 Hours</option>
+                    <option value="4">4 Hours</option>
+                  </select>
+                </div>
+              </section>
+
+              <section class="booking-panel addons-panel">
+                <div class="booking-panel-heading">
+                  <span class="booking-step-number">03</span>
+                  <div>
+                    <h3>Add-ons</h3>
+                    <p>Optional extras for your session.</p>
+                  </div>
+                </div>
+
+                <div class="addons-grid modern-addons-grid">
+                  <div class="addon-card modern-addon-card">
+                    <div class="addon-product">
+                      <span class="addon-product-icon">🏓</span>
+                      <div class="addon-info">
+                        <strong>Paddle Rental</strong>
+                        <span>₱30 / paddle</span>
+                      </div>
+                    </div>
+                    <div class="qty-control">
+                      <button type="button" class="qty-btn minus" data-type="paddle" aria-label="Remove paddle">−</button>
+                      <span class="qty-display" id="paddleQty">0</span>
+                      <button type="button" class="qty-btn plus" data-type="paddle" aria-label="Add paddle">+</button>
+                    </div>
+                  </div>
+
+                  <div class="addon-card modern-addon-card">
+                    <div class="addon-product">
+                      <span class="addon-product-icon">●</span>
+                      <div class="addon-info">
+                        <strong>Ball Purchase</strong>
+                        <span>₱100 / ball</span>
+                      </div>
+                    </div>
+                    <div class="qty-control">
+                      <button type="button" class="qty-btn minus" data-type="ball" aria-label="Remove ball">−</button>
+                      <span class="qty-display" id="ballQty">0</span>
+                      <button type="button" class="qty-btn plus" data-type="ball" aria-label="Add ball">+</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- RIGHT: SUMMARY -->
+            <aside class="booking-summary-column">
+              <div class="booking-summary-card">
+                <div class="summary-card-heading">
+                  <span class="booking-mini-label">BOOKING SUMMARY</span>
+                  <h3>Review your total</h3>
+                  <p id="summarySlotLabel">Select a court to calculate your reservation.</p>
+                </div>
+
+                <div class="summary-price-list">
+                  <div class="summary-price-row">
+                    <div>
+                      <span>Court reservation</span>
+                      <small id="summaryDurationText">1 hour</small>
+                    </div>
+                    <strong id="courtPriceDisplay">₱0</strong>
+                  </div>
+
+                  <div class="summary-price-row">
+                    <div>
+                      <span>Add-ons</span>
+                      <small>Paddles & balls</small>
+                    </div>
+                    <strong id="addonsPriceDisplay">₱0</strong>
+                  </div>
+                </div>
+
+                <div class="summary-total-row">
+                  <div>
+                    <span>Total</span>
+                    <small>Final amount before confirmation</small>
+                  </div>
+                  <strong id="grandTotalDisplay">₱0</strong>
+                </div>
+
+                <div class="payment-section-modern">
+                  <div class="summary-section-title">
+                    <span class="booking-mini-label">PAYMENT</span>
+                    <h4>Choose how to pay</h4>
+                  </div>
+
+                  <div class="payment-options modern-payment-options">
+                    <label class="radio-card modern-payment-card">
+                      <input type="radio" name="payment" value="gcash" checked>
+                      <div class="card-content">
+                        <span class="payment-icon gcash-icon">G</span>
+                        <div class="payment-copy">
+                          <strong>GCash QR Code</strong>
+                          <span>Pay securely online</span>
+                        </div>
+                        <span class="payment-check">✓</span>
+                      </div>
+                    </label>
+
+                    <label class="radio-card modern-payment-card">
+                      <input type="radio" name="payment" value="venue">
+                      <div class="card-content">
+                        <span class="payment-icon venue-icon">₱</span>
+                        <div class="payment-copy">
+                          <strong>Pay on Venue</strong>
+                          <span>Cash upon arrival</span>
+                        </div>
+                        <span class="payment-check">✓</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="booking-submit-area">
+                  <button type="submit" class="btn-confirm modern-confirm-booking">
+                    <span>Review &amp; Confirm Booking</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                  <p>You'll review all details once more before the booking is submitted.</p>
+                </div>
+              </div>
+            </aside>
+
+          </div>
         </form>
+
         <div id="messageArea" class="message-area hidden"></div>
       </div>
     </div>
@@ -628,6 +794,6 @@ window.firebaseFunctions = {
 };
 </script>
 
-<script src="app.js?v=20260926-openplay-2" defer></script>
+<script src="app.js?v=20260926-booking-redesign-1" defer></script>
 </body>
 </html>
