@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hiraya Admin Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260926-admin-settings-2">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="favicon.png">
 </head>
@@ -72,8 +72,17 @@
   <!-- Dashboard Header -->
   <section class="dashboard-header">
     <div class="container">
-     
-      
+      <div class="admin-page-heading">
+        <div>
+          <span class="admin-eyebrow">HIRAYA OPERATIONS</span>
+          <h1>Admin Dashboard</h1>
+          <p>Manage reservations, court availability, Open Play overrides, and daily operations.</p>
+        </div>
+        <div class="admin-heading-badge">
+          <span class="admin-heading-dot"></span>
+          Live booking management
+        </div>
+      </div>
     </div>
   </section>
 
@@ -161,7 +170,10 @@
       <!-- Bookings Table -->
       <div class="table-card">
        <div class="table-header">
-  <h2>All Bookings</h2>
+  <div class="table-title-group">
+    <h2>All Bookings</h2>
+    <p>Newest reservations appear first. Use the filters to narrow the list.</p>
+  </div>
   <div class="export-buttons">
     <button id="exportDropdownBtn" class="btn-export">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -204,6 +216,11 @@
             </tbody>
           </table>
         </div>
+
+        <div class="bookings-pagination-footer">
+          <div id="paginationSummary" class="pagination-summary">Loading bookings...</div>
+          <nav id="adminPagination" class="admin-pagination" aria-label="Bookings pagination"></nav>
+        </div>
       </div>
     </div>
   </section>
@@ -212,7 +229,7 @@
   <section id="settings-section" class="dashboard-section">
     <div class="settings-header">
       <h2>⚙️ Court Availability Settings</h2>
-      <p>Manage specific courts for tournaments or maintenance.</p>
+      <p>Manage court status, Open Play overrides, tournaments, and maintenance.</p>
     </div>
 
     <!-- Single Centered Card -->
@@ -241,38 +258,289 @@
       </div>
     </div>
 
-        <!-- Schedule Specific Date Closure -->
-    <div class="settings-card single-card" style="margin-top: 24px;">
-      <h3>📅 Schedule Date-Specific Closure</h3>
-      <p class="desc">Close a court for a specific upcoming date.</p>
-      
-      <div class="closure-form">
-        <div class="form-group">
-          <label>Date</label>
-          <input type="date" id="closureDate" required>
+    <!-- Open Play Rules + Manual Overrides -->
+    <div class="settings-card single-card modern-admin-tool open-play-override-card" style="margin-top: 24px;">
+      <div class="modern-tool-hero purple-hero">
+        <div class="modern-tool-icon" aria-hidden="true">🎾</div>
+        <div class="modern-tool-heading">
+          <span class="modern-tool-eyebrow">SCHEDULE CONTROL</span>
+          <h3>Open Play Date Overrides</h3>
+          <p>
+            Weekly rules run automatically. Use an override only when selected dates need
+            to switch to Open Play or reopen for reservations.
+          </p>
         </div>
-        <div class="form-group">
-          <label>Court</label>
-          <select id="closureCourt">
+        <span class="modern-tool-badge">Manual override</span>
+      </div>
+
+      <div class="weekly-open-play-rules modern-rule-grid">
+        <div class="modern-rule-card">
+          <span class="rule-day">MON–THU</span>
+          <strong>Split court schedule</strong>
+          <span>Court 1 Open Play from 8 PM · Court 2 from 5 PM</span>
+        </div>
+        <div class="modern-rule-card featured">
+          <span class="rule-day">FRIDAY</span>
+          <strong>Open Play all day</strong>
+          <span>Both courts are reserved for Open Play</span>
+        </div>
+        <div class="modern-rule-card">
+          <span class="rule-day">SAT–SUN</span>
+          <strong>Evening Open Play</strong>
+          <span>Both courts switch to Open Play from 6 PM</span>
+        </div>
+      </div>
+
+      <div class="modern-settings-workspace">
+        <div class="modern-control-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step">01</span>
+              <h4>Choose dates</h4>
+            </div>
+            <span id="overrideDateCount" class="selection-count">0 selected</span>
+          </div>
+
+          <div class="modern-date-control">
+            <div class="date-field-shell">
+              <span class="date-field-icon" aria-hidden="true">📅</span>
+              <input type="date" id="openPlayOverrideDate" aria-label="Open Play override date">
+            </div>
+            <button type="button" id="addOverrideDateBtn" class="modern-secondary-btn">Add date</button>
+          </div>
+
+          <div class="quick-date-row" aria-label="Quick date options">
+            <button type="button" class="quick-date-btn" data-date-target="openPlayOverrideDate" data-date-offset="0">Today</button>
+            <button type="button" class="quick-date-btn" data-date-target="openPlayOverrideDate" data-date-offset="1">Tomorrow</button>
+            <button type="button" class="quick-date-btn" data-date-target="openPlayOverrideDate" data-next-weekday="6">Next Sat</button>
+            <button type="button" class="quick-date-btn" data-date-target="openPlayOverrideDate" data-next-weekday="0">Next Sun</button>
+          </div>
+
+          <div id="selectedOverrideDates" class="selected-override-dates modern-selection-tray">
+            <span class="override-empty-text">No dates selected yet.</span>
+          </div>
+        </div>
+
+        <div class="modern-control-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step">02</span>
+              <h4>Choose court</h4>
+            </div>
+          </div>
+
+          <select id="openPlayOverrideCourt" class="modern-hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="Court 1">Court 1</option>
+            <option value="Court 2">Court 2</option>
+            <option value="All">Both Courts</option>
+          </select>
+
+          <div class="modern-choice-grid three-choice" data-select-sync="openPlayOverrideCourt">
+            <button type="button" class="modern-choice-card active" data-value="Court 1">
+              <span class="choice-icon">1</span>
+              <strong>Court 1</strong>
+              <small>Apply to Court 1 only</small>
+            </button>
+            <button type="button" class="modern-choice-card" data-value="Court 2">
+              <span class="choice-icon">2</span>
+              <strong>Court 2</strong>
+              <small>Apply to Court 2 only</small>
+            </button>
+            <button type="button" class="modern-choice-card" data-value="All">
+              <span class="choice-icon">↔</span>
+              <strong>Both Courts</strong>
+              <small>Apply to Court 1 & 2</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="modern-control-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step">03</span>
+              <h4>Choose mode</h4>
+            </div>
+          </div>
+
+          <select id="openPlayOverrideMode" class="modern-hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="open-play">Open Play</option>
+            <option value="bookable">Open for Booking</option>
+          </select>
+
+          <div class="modern-choice-grid two-choice" data-select-sync="openPlayOverrideMode">
+            <button type="button" class="modern-choice-card mode-card active" data-value="open-play">
+              <span class="choice-icon">🎾</span>
+              <strong>Open Play</strong>
+              <small>Disable court reservations</small>
+            </button>
+            <button type="button" class="modern-choice-card mode-card success-choice" data-value="bookable">
+              <span class="choice-icon">✓</span>
+              <strong>Open for Booking</strong>
+              <small>Allow reservations on selected dates</small>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modern-action-bar">
+        <div class="modern-action-summary">
+          <span class="summary-label">Ready to apply</span>
+          <strong id="openPlayOverridePreview">Select one or more dates to continue.</strong>
+        </div>
+        <div class="modern-action-buttons">
+          <span id="openPlayOverrideMessage" class="override-save-message"></span>
+          <button type="button" id="saveOpenPlayOverridesBtn" class="modern-primary-btn">
+            <span>Apply Override</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modern-management-section">
+        <div class="modern-management-heading">
+          <div>
+            <span class="modern-tool-eyebrow">ACTIVE RULES</span>
+            <h4>Current Open Play Overrides</h4>
+            <p>Remove an override to return that court/date to the regular weekly schedule.</p>
+          </div>
+          <span id="openPlayOverrideCount" class="management-count">0 overrides</span>
+        </div>
+        <div id="openPlayOverridesList" class="open-play-overrides-list modern-management-list">
+          <div class="modern-empty-state compact">
+            <span>⌛</span>
+            <p>Loading overrides...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule Specific Date Closure -->
+    <div class="settings-card single-card modern-admin-tool closure-scheduler-card" style="margin-top: 24px;">
+      <div class="modern-tool-hero amber-hero">
+        <div class="modern-tool-icon" aria-hidden="true">📅</div>
+        <div class="modern-tool-heading">
+          <span class="modern-tool-eyebrow">COURT BLOCKING</span>
+          <h3>Schedule Date-Specific Closure</h3>
+          <p>Block one or both courts for maintenance, tournaments, or special events on a specific date.</p>
+        </div>
+        <span class="modern-tool-badge amber-badge">Date closure</span>
+      </div>
+
+      <div class="closure-modern-layout">
+        <div class="modern-control-panel closure-date-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step amber-step">01</span>
+              <h4>Pick a date</h4>
+            </div>
+          </div>
+
+          <div class="modern-date-control closure-date-control">
+            <div class="date-field-shell">
+              <span class="date-field-icon" aria-hidden="true">📅</span>
+              <input type="date" id="closureDate" required aria-label="Closure date">
+            </div>
+          </div>
+
+          <div class="quick-date-row" aria-label="Quick closure date options">
+            <button type="button" class="quick-date-btn amber" data-date-target="closureDate" data-date-offset="0">Today</button>
+            <button type="button" class="quick-date-btn amber" data-date-target="closureDate" data-date-offset="1">Tomorrow</button>
+            <button type="button" class="quick-date-btn amber" data-date-target="closureDate" data-next-weekday="6">Next Sat</button>
+            <button type="button" class="quick-date-btn amber" data-date-target="closureDate" data-next-weekday="0">Next Sun</button>
+          </div>
+        </div>
+
+        <div class="modern-control-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step amber-step">02</span>
+              <h4>Select court</h4>
+            </div>
+          </div>
+
+          <select id="closureCourt" class="modern-hidden-select" aria-hidden="true" tabindex="-1">
             <option value="Court 1">Court 1</option>
             <option value="Court 2">Court 2</option>
             <option value="All">All Courts</option>
           </select>
-        </div>
-        <div class="form-group">
-          <label>Reason</label>
-          <select id="closureReason">
-            <option value="maintenance">️ Maintenance</option>
-            <option value="tournament">🏆 Tournament / Event</option>
-          </select>
-        </div>
-        <button id="addClosureBtn" class="btn-primary" style="align-self: flex-end;">Add Closure</button>
-      </div>
-    </div>
 
-    <!-- List of Scheduled Closures -->
-    <div id="scheduledClosuresList" class="closures-list">
-      <!-- JS will populate this -->
+          <div class="modern-choice-grid three-choice" data-select-sync="closureCourt">
+            <button type="button" class="modern-choice-card active amber-choice" data-value="Court 1">
+              <span class="choice-icon">1</span>
+              <strong>Court 1</strong>
+              <small>Close Court 1 only</small>
+            </button>
+            <button type="button" class="modern-choice-card amber-choice" data-value="Court 2">
+              <span class="choice-icon">2</span>
+              <strong>Court 2</strong>
+              <small>Close Court 2 only</small>
+            </button>
+            <button type="button" class="modern-choice-card amber-choice" data-value="All">
+              <span class="choice-icon">×2</span>
+              <strong>Both Courts</strong>
+              <small>Close Court 1 & 2</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="modern-control-panel">
+          <div class="modern-control-heading">
+            <div>
+              <span class="control-step amber-step">03</span>
+              <h4>Closure reason</h4>
+            </div>
+          </div>
+
+          <select id="closureReason" class="modern-hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="maintenance">Maintenance</option>
+            <option value="tournament">Tournament / Event</option>
+          </select>
+
+          <div class="modern-choice-grid two-choice" data-select-sync="closureReason">
+            <button type="button" class="modern-choice-card reason-card active amber-choice" data-value="maintenance">
+              <span class="choice-icon">🛠</span>
+              <strong>Maintenance</strong>
+              <small>Repairs, cleaning, or court work</small>
+            </button>
+            <button type="button" class="modern-choice-card reason-card amber-choice" data-value="tournament">
+              <span class="choice-icon">🏆</span>
+              <strong>Tournament / Event</strong>
+              <small>Reserve the court for an event</small>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modern-action-bar amber-action-bar">
+        <div class="modern-action-summary">
+          <span class="summary-label">Closure preview</span>
+          <strong id="closurePreview">Choose a date to preview this closure.</strong>
+        </div>
+        <div class="modern-action-buttons">
+          <span id="closureMessage" class="override-save-message"></span>
+          <button id="addClosureBtn" type="button" class="modern-primary-btn amber-primary-btn">
+            <span>Schedule Closure</span>
+            <span aria-hidden="true">＋</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modern-management-section closure-management-section">
+        <div class="modern-management-heading">
+          <div>
+            <span class="modern-tool-eyebrow">UPCOMING BLOCKS</span>
+            <h4>Scheduled Closures</h4>
+            <p>Upcoming maintenance and event closures are listed here.</p>
+          </div>
+          <span id="scheduledClosureCount" class="management-count amber-count">0 closures</span>
+        </div>
+        <div id="scheduledClosuresList" class="closures-list modern-management-list">
+          <div class="modern-empty-state compact">
+            <span>⌛</span>
+            <p>Loading closures...</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <button id="saveSettingsBtn" class="btn-primary save-settings-btn">Save Settings</button>
@@ -483,6 +751,9 @@ async function loadFacilitySettings() {
 loadFacilitySettings();
 
 // Save settings on button click
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+if (saveSettingsBtn) {
 saveSettingsBtn.addEventListener('click', async () => {
   const newSettings = {
     courts: {
@@ -519,6 +790,7 @@ saveSettingsBtn.addEventListener('click', async () => {
     msg.classList.remove('hidden');
   }
 });
+}
   
 </script>
 
@@ -580,159 +852,579 @@ saveSettingsBtn.addEventListener('click', async () => {
   });
 
   // ==========================================
-  // SCHEDULED CLOSURES LOGIC
+  // MODERN SETTINGS HELPERS
   // ==========================================
-  const closuresList = document.getElementById('scheduledClosuresList');
-  const addClosureBtn = document.getElementById('addClosureBtn');
-  
-  // Set min date to today
-  const dateInput = document.getElementById('closureDate');
-  if (dateInput) {
-    dateInput.min = new Date().toISOString().split('T')[0];
-  }
-
-async function renderClosures() {
-  if (!closuresList) return;
-
-  // Wait until Firebase is ready
-  while (!window.firebaseFunctions || !window.db) {
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-
-  try {
-    const {
-      collection,
-      getDocs
-    } = window.firebaseFunctions;
-
-    const snapshot = await getDocs(
-      collection(window.db, 'scheduledClosures')
+  function getLocalTodayDateString() {
+    const today = new Date();
+    return (
+      today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0')
     );
+  }
 
-    const closures = snapshot.docs.map(document => ({
-      id: document.id,
-      ...document.data()
-    }));
+  function dateToLocalString(date) {
+    return (
+      date.getFullYear() + '-' +
+      String(date.getMonth() + 1).padStart(2, '0') + '-' +
+      String(date.getDate()).padStart(2, '0')
+    );
+  }
 
-    closures.sort((a, b) => {
-      return (a.date || '').localeCompare(b.date || '');
+  function formatAdminDate(dateStr, longForm = false) {
+    if (!dateStr) return 'No date selected';
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+
+    return date.toLocaleDateString('en-US', longForm
+      ? { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }
+      : { weekday: 'short', month: 'short', day: 'numeric' }
+    );
+  }
+
+  function getDateBadgeParts(dateStr) {
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return { month: 'DATE', day: '--' };
+    }
+    return {
+      month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+      day: String(date.getDate()).padStart(2, '0')
+    };
+  }
+
+  function escapeAdminHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function setInlineMessage(element, message, state = '') {
+    if (!element) return;
+    element.textContent = message || '';
+    element.className = `override-save-message${state ? ` ${state}` : ''}`;
+  }
+
+  function initializeModernChoiceControls() {
+    document.querySelectorAll('[data-select-sync]').forEach(group => {
+      const selectId = group.dataset.selectSync;
+      const select = document.getElementById(selectId);
+      if (!select) return;
+
+      const buttons = Array.from(group.querySelectorAll('[data-value]'));
+
+      const syncButtons = () => {
+        buttons.forEach(button => {
+          const isActive = button.dataset.value === select.value;
+          button.classList.toggle('active', isActive);
+          button.setAttribute('aria-pressed', String(isActive));
+        });
+      };
+
+      buttons.forEach(button => {
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', () => {
+          select.value = button.dataset.value;
+          syncButtons();
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+
+      select.addEventListener('change', syncButtons);
+      syncButtons();
     });
+  }
 
-    if (closures.length === 0) {
-      closuresList.innerHTML =
-        '<p style="text-align:center; color: var(--gray-500); width:100%;">No scheduled closures.</p>';
+  function initializeQuickDateButtons() {
+    document.querySelectorAll('.quick-date-btn[data-date-target]').forEach(button => {
+      button.addEventListener('click', () => {
+        const target = document.getElementById(button.dataset.dateTarget);
+        if (!target) return;
+
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+
+        if (button.dataset.dateOffset !== undefined) {
+          date.setDate(date.getDate() + Number(button.dataset.dateOffset || 0));
+        } else if (button.dataset.nextWeekday !== undefined) {
+          const targetDay = Number(button.dataset.nextWeekday);
+          let delta = (targetDay - date.getDay() + 7) % 7;
+          if (delta === 0) delta = 7;
+          date.setDate(date.getDate() + delta);
+        }
+
+        target.value = dateToLocalString(date);
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+  }
+
+  // ==========================================
+  // OPEN PLAY DATE/COURT OVERRIDES
+  // ==========================================
+  const selectedOpenPlayOverrideDates = new Set();
+
+  const overrideDateInput = document.getElementById('openPlayOverrideDate');
+  const addOverrideDateBtn = document.getElementById('addOverrideDateBtn');
+  const saveOpenPlayOverridesBtn = document.getElementById('saveOpenPlayOverridesBtn');
+  const selectedOverrideDatesEl = document.getElementById('selectedOverrideDates');
+  const openPlayOverridesList = document.getElementById('openPlayOverridesList');
+  const openPlayOverrideMessage = document.getElementById('openPlayOverrideMessage');
+  const openPlayOverridePreview = document.getElementById('openPlayOverridePreview');
+  const overrideDateCount = document.getElementById('overrideDateCount');
+  const openPlayOverrideCount = document.getElementById('openPlayOverrideCount');
+
+  if (overrideDateInput) {
+    overrideDateInput.min = getLocalTodayDateString();
+  }
+
+  function updateOpenPlayOverridePreview() {
+    const dates = Array.from(selectedOpenPlayOverrideDates).sort();
+    const court = document.getElementById('openPlayOverrideCourt')?.value || 'Court 1';
+    const mode = document.getElementById('openPlayOverrideMode')?.value || 'open-play';
+
+    if (overrideDateCount) {
+      overrideDateCount.textContent = `${dates.length} selected`;
+    }
+
+    if (!openPlayOverridePreview) return;
+
+    if (!dates.length) {
+      openPlayOverridePreview.textContent = 'Select one or more dates to continue.';
       return;
     }
 
-    closuresList.innerHTML = closures.map(c => `
-      <div class="closure-tag ${c.reason}">
-        <strong>${c.date}</strong>
-        <span>
-          ${c.court} -
-          ${
-            c.reason === 'tournament'
-              ? 'Tournament'
-              : c.reason === 'maintenance'
-              ? 'Maintenance'
-              : 'Closed'
-          }
-        </span>
-        <button onclick="deleteClosure('${c.id}')">&times;</button>
-      </div>
+    const dateLabel = dates.length === 1
+      ? formatAdminDate(dates[0], true)
+      : `${dates.length} selected dates`;
+    const courtLabel = court === 'All' ? 'both courts' : court;
+    const modeLabel = mode === 'open-play' ? 'Open Play' : 'Open for Booking';
+
+    openPlayOverridePreview.textContent = `${dateLabel} · ${courtLabel} · ${modeLabel}`;
+  }
+
+  function renderSelectedOverrideDates() {
+    if (!selectedOverrideDatesEl) return;
+
+    const dates = Array.from(selectedOpenPlayOverrideDates).sort();
+
+    if (!dates.length) {
+      selectedOverrideDatesEl.innerHTML = `
+        <div class="modern-empty-inline">
+          <span>＋</span>
+          <p>Add one or more dates above. Selected dates will appear here.</p>
+        </div>
+      `;
+      updateOpenPlayOverridePreview();
+      return;
+    }
+
+    selectedOverrideDatesEl.innerHTML = dates.map(date => `
+      <button
+        type="button"
+        class="override-date-chip modern-date-chip"
+        data-date="${escapeAdminHtml(date)}"
+        title="Remove ${escapeAdminHtml(date)}"
+      >
+        <span class="chip-calendar-icon">📅</span>
+        <span>${escapeAdminHtml(formatAdminDate(date))}</span>
+        <strong>&times;</strong>
+      </button>
     `).join('');
 
-  } catch (error) {
-    console.error('Error loading scheduled closures:', error);
+    selectedOverrideDatesEl
+      .querySelectorAll('.override-date-chip')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          selectedOpenPlayOverrideDates.delete(button.dataset.date);
+          renderSelectedOverrideDates();
+        });
+      });
 
-    closuresList.innerHTML =
-      '<p style="text-align:center; color: var(--gray-500); width:100%;">Unable to load scheduled closures.</p>';
+    updateOpenPlayOverridePreview();
   }
-}
 
+  if (addOverrideDateBtn) {
+    addOverrideDateBtn.addEventListener('click', () => {
+      const date = overrideDateInput?.value;
 
-window.deleteClosure = async function(closureId) {
-  if (!confirm('Delete this scheduled closure?')) return;
+      if (!date) {
+        setInlineMessage(openPlayOverrideMessage, 'Choose a date before adding it.', 'error');
+        overrideDateInput?.focus();
+        return;
+      }
 
-  try {
-    const {
-      doc,
-      deleteDoc
-    } = window.firebaseFunctions;
-
-    await deleteDoc(
-      doc(window.db, 'scheduledClosures', closureId)
-    );
-
-    await renderClosures();
-
-  } catch (error) {
-    console.error('Error deleting scheduled closure:', error);
-    alert('Unable to delete the scheduled closure.');
+      selectedOpenPlayOverrideDates.add(date);
+      overrideDateInput.value = '';
+      setInlineMessage(openPlayOverrideMessage, '');
+      renderSelectedOverrideDates();
+    });
   }
-};
 
+  function getOpenPlayOverrideDocumentId(date, court) {
+    const courtKey = court.toLowerCase().replace(/\s+/g, '-');
+    return `${date}__${courtKey}`;
+  }
 
-if (addClosureBtn) {
-  addClosureBtn.addEventListener('click', async () => {
-    const date = document.getElementById('closureDate').value;
-    const court = document.getElementById('closureCourt').value;
-    const reason = document.getElementById('closureReason').value;
+  async function renderOpenPlayOverrides() {
+    if (!openPlayOverridesList) return;
 
-    if (!date) {
-      alert('Please select a date.');
+    while (!window.firebaseFunctions || !window.db) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    try {
+      const { collection, getDocs } = window.firebaseFunctions;
+
+      const snapshot = await getDocs(
+        collection(window.db, 'openPlayOverrides')
+      );
+
+      const overrides = snapshot.docs
+        .map(document => ({ id: document.id, ...document.data() }))
+        .sort((a, b) => {
+          const dateCompare = (a.date || '').localeCompare(b.date || '');
+          if (dateCompare !== 0) return dateCompare;
+          return (a.court || '').localeCompare(b.court || '');
+        });
+
+      if (openPlayOverrideCount) {
+        openPlayOverrideCount.textContent = `${overrides.length} override${overrides.length === 1 ? '' : 's'}`;
+      }
+
+      if (!overrides.length) {
+        openPlayOverridesList.innerHTML = `
+          <div class="modern-empty-state">
+            <span class="empty-state-icon">🎾</span>
+            <strong>No manual overrides</strong>
+            <p>Your automatic weekly Open Play schedule is currently handling every date.</p>
+          </div>
+        `;
+        return;
+      }
+
+      openPlayOverridesList.innerHTML = overrides.map(override => {
+        const isOpenPlay = override.mode === 'open-play';
+        const date = escapeAdminHtml(override.date || '');
+        const court = escapeAdminHtml(override.court || 'Unknown court');
+        const parts = getDateBadgeParts(override.date);
+
+        return `
+          <div class="modern-management-item open-play-override-row">
+            <div class="management-date-badge purple-date-badge">
+              <span>${parts.month}</span>
+              <strong>${parts.day}</strong>
+            </div>
+            <div class="management-item-copy">
+              <strong>${escapeAdminHtml(formatAdminDate(override.date, true))}</strong>
+              <span>${court}</span>
+            </div>
+            <span class="override-mode-badge ${isOpenPlay ? 'open-play' : 'bookable'}">
+              ${isOpenPlay ? '🎾 Open Play' : '✓ Open for Booking'}
+            </span>
+            <button
+              type="button"
+              class="modern-delete-btn override-delete-btn"
+              onclick="deleteOpenPlayOverride('${escapeAdminHtml(override.id)}')"
+              aria-label="Delete override"
+              title="Return to weekly rules"
+            >
+              <span aria-hidden="true">×</span>
+              <span class="delete-label">Remove</span>
+            </button>
+          </div>
+        `;
+      }).join('');
+
+    } catch (error) {
+      console.error('Error loading Open Play overrides:', error);
+      if (openPlayOverrideCount) openPlayOverrideCount.textContent = 'Unavailable';
+      openPlayOverridesList.innerHTML = `
+        <div class="modern-empty-state error-state">
+          <span class="empty-state-icon">!</span>
+          <strong>Unable to load overrides</strong>
+          <p>Check your connection and Firebase permissions.</p>
+        </div>
+      `;
+    }
+  }
+
+  window.deleteOpenPlayOverride = async function(overrideId) {
+    if (!confirm('Delete this Open Play override and return to the normal weekly rule?')) {
       return;
     }
 
     try {
-      const {
-        collection,
-        getDocs,
-        addDoc
-      } = window.firebaseFunctions;
+      const { doc, deleteDoc } = window.firebaseFunctions;
+      await deleteDoc(doc(window.db, 'openPlayOverrides', overrideId));
+      await renderOpenPlayOverrides();
+    } catch (error) {
+      console.error('Error deleting Open Play override:', error);
+      setInlineMessage(openPlayOverrideMessage, 'Unable to remove that override.', 'error');
+    }
+  };
 
-      const closuresRef =
-        collection(window.db, 'scheduledClosures');
+  if (saveOpenPlayOverridesBtn) {
+    saveOpenPlayOverridesBtn.addEventListener('click', async () => {
+      const dates = Array.from(selectedOpenPlayOverrideDates).sort();
+      const court = document.getElementById('openPlayOverrideCourt')?.value;
+      const mode = document.getElementById('openPlayOverrideMode')?.value;
 
-      const snapshot =
-        await getDocs(closuresRef);
-
-      const closures =
-        snapshot.docs.map(document => document.data());
-
-      const exists = closures.some(c =>
-        c.date === date &&
-        (
-          c.court === court ||
-          c.court === 'All' ||
-          court === 'All'
-        )
-      );
-
-      if (exists) {
-        alert('A closure already exists for this date/court.');
+      if (!dates.length) {
+        setInlineMessage(openPlayOverrideMessage, 'Add at least one date first.', 'error');
         return;
       }
 
-      await addDoc(closuresRef, {
-        date,
-        court,
-        reason
-      });
+      if (!court || !mode) {
+        setInlineMessage(openPlayOverrideMessage, 'Choose a court and override mode.', 'error');
+        return;
+      }
 
-      document.getElementById('closureDate').value = '';
+      const originalMarkup = saveOpenPlayOverridesBtn.innerHTML;
+      saveOpenPlayOverridesBtn.disabled = true;
+      saveOpenPlayOverridesBtn.innerHTML = '<span>Saving…</span><span class="button-spinner" aria-hidden="true"></span>';
+      setInlineMessage(openPlayOverrideMessage, 'Saving override…');
 
-      await renderClosures();
+      try {
+        while (!window.firebaseFunctions || !window.db) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        const { doc, setDoc } = window.firebaseFunctions;
+        const courts = court === 'All' ? ['Court 1', 'Court 2'] : [court];
+
+        for (const date of dates) {
+          for (const selectedCourt of courts) {
+            const overrideId = getOpenPlayOverrideDocumentId(date, selectedCourt);
+
+            await setDoc(
+              doc(window.db, 'openPlayOverrides', overrideId),
+              {
+                date,
+                court: selectedCourt,
+                mode,
+                updatedAt: Date.now()
+              }
+            );
+          }
+        }
+
+        selectedOpenPlayOverrideDates.clear();
+        renderSelectedOverrideDates();
+        setInlineMessage(
+          openPlayOverrideMessage,
+          `Applied to ${dates.length} date${dates.length === 1 ? '' : 's'}.`,
+          'success'
+        );
+        await renderOpenPlayOverrides();
+      } catch (error) {
+        console.error('Error saving Open Play overrides:', error);
+        setInlineMessage(
+          openPlayOverrideMessage,
+          'Unable to save overrides. Check Firebase permissions.',
+          'error'
+        );
+      } finally {
+        saveOpenPlayOverridesBtn.disabled = false;
+        saveOpenPlayOverridesBtn.innerHTML = originalMarkup;
+      }
+    });
+  }
+
+  ['openPlayOverrideCourt', 'openPlayOverrideMode'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateOpenPlayOverridePreview);
+  });
+
+  // ==========================================
+  // SCHEDULED CLOSURES LOGIC
+  // ==========================================
+  const closuresList = document.getElementById('scheduledClosuresList');
+  const addClosureBtn = document.getElementById('addClosureBtn');
+  const dateInput = document.getElementById('closureDate');
+  const closureMessage = document.getElementById('closureMessage');
+  const closurePreview = document.getElementById('closurePreview');
+  const scheduledClosureCount = document.getElementById('scheduledClosureCount');
+
+  if (dateInput) {
+    dateInput.min = getLocalTodayDateString();
+  }
+
+  function updateClosurePreview() {
+    if (!closurePreview) return;
+
+    const date = document.getElementById('closureDate')?.value;
+    const court = document.getElementById('closureCourt')?.value || 'Court 1';
+    const reason = document.getElementById('closureReason')?.value || 'maintenance';
+
+    if (!date) {
+      closurePreview.textContent = 'Choose a date to preview this closure.';
+      return;
+    }
+
+    const courtLabel = court === 'All' ? 'both courts' : court;
+    const reasonLabel = reason === 'tournament' ? 'Tournament / Event' : 'Maintenance';
+    closurePreview.textContent = `${formatAdminDate(date, true)} · ${courtLabel} · ${reasonLabel}`;
+  }
+
+  ['closureDate', 'closureCourt', 'closureReason'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateClosurePreview);
+  });
+
+  async function renderClosures() {
+    if (!closuresList) return;
+
+    while (!window.firebaseFunctions || !window.db) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    try {
+      const { collection, getDocs } = window.firebaseFunctions;
+      const snapshot = await getDocs(collection(window.db, 'scheduledClosures'));
+
+      const closures = snapshot.docs
+        .map(document => ({ id: document.id, ...document.data() }))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      if (scheduledClosureCount) {
+        scheduledClosureCount.textContent = `${closures.length} closure${closures.length === 1 ? '' : 's'}`;
+      }
+
+      if (!closures.length) {
+        closuresList.innerHTML = `
+          <div class="modern-empty-state">
+            <span class="empty-state-icon">📅</span>
+            <strong>No scheduled closures</strong>
+            <p>All courts currently follow their normal booking and Open Play schedule.</p>
+          </div>
+        `;
+        return;
+      }
+
+      closuresList.innerHTML = closures.map(c => {
+        const reasonLabel = c.reason === 'tournament' ? 'Tournament / Event' : 'Maintenance';
+        const reasonIcon = c.reason === 'tournament' ? '🏆' : '🛠';
+        const parts = getDateBadgeParts(c.date);
+
+        return `
+          <div class="modern-management-item closure-management-item ${escapeAdminHtml(c.reason || 'closed')}">
+            <div class="management-date-badge amber-date-badge">
+              <span>${parts.month}</span>
+              <strong>${parts.day}</strong>
+            </div>
+            <div class="management-item-copy">
+              <strong>${escapeAdminHtml(formatAdminDate(c.date, true))}</strong>
+              <span>${escapeAdminHtml(c.court || 'Unknown court')}</span>
+            </div>
+            <span class="closure-reason-badge ${escapeAdminHtml(c.reason || 'closed')}">
+              ${reasonIcon} ${reasonLabel}
+            </span>
+            <button
+              type="button"
+              class="modern-delete-btn closure-delete-btn"
+              onclick="deleteClosure('${escapeAdminHtml(c.id)}')"
+              aria-label="Delete scheduled closure"
+            >
+              <span aria-hidden="true">×</span>
+              <span class="delete-label">Remove</span>
+            </button>
+          </div>
+        `;
+      }).join('');
 
     } catch (error) {
-      console.error('Error adding scheduled closure:', error);
-      alert('Unable to save the scheduled closure. Please try again.');
+      console.error('Error loading scheduled closures:', error);
+      if (scheduledClosureCount) scheduledClosureCount.textContent = 'Unavailable';
+      closuresList.innerHTML = `
+        <div class="modern-empty-state error-state">
+          <span class="empty-state-icon">!</span>
+          <strong>Unable to load closures</strong>
+          <p>Check your connection and Firebase permissions.</p>
+        </div>
+      `;
     }
-  });
-}
+  }
 
+  window.deleteClosure = async function(closureId) {
+    if (!confirm('Delete this scheduled closure?')) return;
 
-// Initial render
-renderClosures();
+    try {
+      const { doc, deleteDoc } = window.firebaseFunctions;
+      await deleteDoc(doc(window.db, 'scheduledClosures', closureId));
+      setInlineMessage(closureMessage, 'Closure removed.', 'success');
+      await renderClosures();
+    } catch (error) {
+      console.error('Error deleting scheduled closure:', error);
+      setInlineMessage(closureMessage, 'Unable to remove the scheduled closure.', 'error');
+    }
+  };
+
+  if (addClosureBtn) {
+    addClosureBtn.addEventListener('click', async () => {
+      const date = document.getElementById('closureDate')?.value;
+      const court = document.getElementById('closureCourt')?.value;
+      const reason = document.getElementById('closureReason')?.value;
+
+      if (!date) {
+        setInlineMessage(closureMessage, 'Choose a date before scheduling a closure.', 'error');
+        dateInput?.focus();
+        return;
+      }
+
+      const originalMarkup = addClosureBtn.innerHTML;
+      addClosureBtn.disabled = true;
+      addClosureBtn.innerHTML = '<span>Scheduling…</span><span class="button-spinner" aria-hidden="true"></span>';
+      setInlineMessage(closureMessage, 'Checking availability…');
+
+      try {
+        const { collection, getDocs, addDoc } = window.firebaseFunctions;
+        const closuresRef = collection(window.db, 'scheduledClosures');
+        const snapshot = await getDocs(closuresRef);
+        const closures = snapshot.docs.map(document => document.data());
+
+        const exists = closures.some(c =>
+          c.date === date &&
+          (c.court === court || c.court === 'All' || court === 'All')
+        );
+
+        if (exists) {
+          setInlineMessage(
+            closureMessage,
+            'A closure already exists for this date and court selection.',
+            'error'
+          );
+          return;
+        }
+
+        await addDoc(closuresRef, { date, court, reason });
+
+        document.getElementById('closureDate').value = '';
+        updateClosurePreview();
+        setInlineMessage(closureMessage, 'Closure scheduled successfully.', 'success');
+        await renderClosures();
+      } catch (error) {
+        console.error('Error adding scheduled closure:', error);
+        setInlineMessage(
+          closureMessage,
+          'Unable to save the scheduled closure. Please try again.',
+          'error'
+        );
+      } finally {
+        addClosureBtn.disabled = false;
+        addClosureBtn.innerHTML = originalMarkup;
+      }
+    });
+  }
+
+  initializeModernChoiceControls();
+  initializeQuickDateButtons();
+  renderSelectedOverrideDates();
+  updateOpenPlayOverridePreview();
+  updateClosurePreview();
+  renderOpenPlayOverrides();
+  renderClosures();
 
 </script>
   <!-- Toast Notification Container -->
@@ -789,7 +1481,7 @@ window.firebaseFunctions = {
 };
 
 const appScript = document.createElement('script');
-appScript.src = 'app.js?v=20260911-1';
+appScript.src = 'app.js?v=20260926-admin-settings-2';
 document.body.appendChild(appScript);
 
   console.log("🔥 Firebase initialized successfully");

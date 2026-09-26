@@ -79,14 +79,15 @@
     // CONSTANTS
     // ==========================================
     const TIME_SLOTS = [
-      "06:00", "07:00", "08:00", "09:00", 
-      "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"
+      "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+      "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
+      "18:00", "19:00", "20:00", "21:00"
     ];
     const COURTS = ['Court 1', 'Court 2'];
-    let currentFilter = 'am';
 
+    // Admin bookings pagination
     let currentPage = 1;
-    const itemsPerPage = 7;
+    const itemsPerPage = 10;
     // Global variables for add-on quantities
     let paddleQty = 0;
     let ballQty = 0;
@@ -95,13 +96,20 @@
     // HELPER FUNCTIONS
     // ==========================================
     let currentWeekOffset = 0;
+    let selectedCalendarDate = null;
 
 
     // ==========================================
-    // OPEN PLAY RULES
-    // Friday toggle: 6:00 PM onward
-    // Weekend toggle: Saturday + Sunday, 6:00 PM onward
-    // Both rules apply to BOTH courts.
+    // OPEN PLAY RULES + DATE/COURT OVERRIDES
+    // ==========================================
+    // Weekly defaults:
+    // Mon-Thu: Court 1 Open Play from 8:00 PM; Court 2 from 5:00 PM.
+    // Friday: both courts are Open Play all day.
+    // Sat-Sun: both courts are Open Play from 6:00 PM.
+    //
+    // Admin date overrides in Firestore collection "openPlayOverrides"
+    // can force a specific court/date to either "open-play" or "bookable".
+    // Overrides affect Open Play only; maintenance/event closures still win.
     // ==========================================
     function getDayNumber(dateStr) {
       if (!dateStr) return -1;
@@ -109,83 +117,230 @@
       return Number.isNaN(date.getTime()) ? -1 : date.getDay();
     }
 
-    function isOpenPlaySlot(dateStr, timeStr, settings) {
-      if (!dateStr || !timeStr) return false;
+    async function getOpenPlayOverrides() {
+      try {
+        await waitForFirebase();
 
-      const hour = parseInt(timeStr.split(':')[0], 10);
-      const dayNumber = getDayNumber(dateStr);
-      const openPlay = settings?.openPlay || {};
-      const startHour = parseInt(openPlay.startHour, 10) || 18;
+        if (!window.db || !window.firebaseFunctions) {
+          return [];
+        }
 
-      if (hour < startHour) return false;
+        const { collection, getDocs } = window.firebaseFunctions;
+        const snapshot = await getDocs(
+          collection(window.db, 'openPlayOverrides')
+        );
 
-      const isFriday = dayNumber === 5;
-      const isWeekend = dayNumber === 6 || dayNumber === 0;
-
-      return (
-        (isFriday && openPlay.friday === true) ||
-        (isWeekend && openPlay.weekend === true)
-      );
+        return snapshot.docs.map(document => ({
+          id: document.id,
+          ...document.data()
+        }));
+      } catch (error) {
+        console.error('Error loading Open Play overrides:', error);
+        return [];
+      }
     }
 
-    async function validateOpenPlayRestriction(dateStr, startTimeStr, duration) {
-      if (!dateStr || !startTimeStr || !duration) {
+    function findOpenPlayOverride(dateStr, court, overrides = []) {
+      return overrides.find(override =>
+        override.date === dateStr &&
+        (override.court === court || override.court === 'All')
+      ) || null;
+    }
+
+    function isRecurringOpenPlaySlot(dateStr, timeStr, court) {
+      if (!dateStr || !timeStr || !court) return false;
+
+      const dayNumber = getDayNumber(dateStr);
+      const hour = parseInt(timeStr.split(':')[0], 10);
+
+      if (Number.isNaN(hour)) return false;
+
+      // Friday: Open Play all day on both courts.
+      if (dayNumber === 5) {
+        return true;
+      }
+
+      // Saturday + Sunday: Open Play from 6:00 PM onwards.
+      if (dayNumber === 6 || dayNumber === 0) {
+        return hour >= 18;
+      }
+
+      // Monday through Thursday.
+      if (dayNumber >= 1 && dayNumber <= 4) {
+        if (court === 'Court 1') {
+          // Last bookable block is 7:00 PM-8:00 PM.
+          return hour >= 20;
+        }
+
+        if (court === 'Court 2') {
+          // Last bookable block is 4:00 PM-5:00 PM.
+          return hour >= 17;
+        }
+      }
+
+      return false;
+    }
+
+    function isOpenPlaySlot(dateStr, timeStr, court, overrides = []) {
+      const manualOverride =
+        findOpenPlayOverride(dateStr, court, overrides);
+
+      if (manualOverride?.mode === 'open-play') {
+        return true;
+      }
+
+      if (manualOverride?.mode === 'bookable') {
+        return false;
+      }
+
+      return isRecurringOpenPlaySlot(dateStr, timeStr, court);
+    }
+
+    function getOpenPlayRestrictionMessage(dateStr, timeStr, court, overrides = []) {
+      const override =
+        findOpenPlayOverride(dateStr, court, overrides);
+
+      if (override?.mode === 'open-play') {
+        return `${court} on ${dateStr} has been set to Open Play by the admin.`;
+      }
+
+      const dayNumber = getDayNumber(dateStr);
+
+      if (dayNumber === 5) {
+        return `Fridays are Open Play all day on both courts.`;
+      }
+
+      if (dayNumber === 6 || dayNumber === 0) {
+        return `Saturday and Sunday are Open Play from 6:00 PM onwards.`;
+      }
+
+      if (dayNumber >= 1 && dayNumber <= 4) {
+        if (court === 'Court 1') {
+          return `Monday to Thursday, Court 1 is Open Play from 8:00 PM onwards.`;
+        }
+
+        if (court === 'Court 2') {
+          return `Monday to Thursday, Court 2 is Open Play from 5:00 PM onwards.`;
+        }
+      }
+
+      return `${court} is reserved for Open Play at ${formatTime12(timeStr)}.`;
+    }
+
+    async function validateOpenPlayRestriction(
+      dateStr,
+      startTimeStr,
+      duration,
+      court
+    ) {
+      if (!dateStr || !startTimeStr || !duration || !court) {
         return {
           allowed: false,
-          message: 'Please select a valid date, time, and duration.'
+          message: 'Please select a valid date, time, court, and duration.'
         };
       }
 
-      const settings = await getFacilitySettingsFromFirestore();
-      const openPlay = settings?.openPlay || {};
       const startHour = parseInt(startTimeStr.split(':')[0], 10);
-      const bookingEndHour = startHour + duration;
-      const openPlayStartHour = parseInt(openPlay.startHour, 10) || 18;
-      const dayNumber = getDayNumber(dateStr);
+      const safeDuration = Math.max(1, parseInt(duration, 10) || 1);
+      const overrides = await getOpenPlayOverrides();
 
-      const restrictionEnabled =
-        (dayNumber === 5 && openPlay.friday === true) ||
-        ((dayNumber === 6 || dayNumber === 0) && openPlay.weekend === true);
+      for (let i = 0; i < safeDuration; i++) {
+        const currentHour = startHour + i;
+        const currentTime =
+          `${currentHour.toString().padStart(2, '0')}:00`;
 
-      if (restrictionEnabled && bookingEndHour > openPlayStartHour) {
-        const dayLabel = dayNumber === 5 ? 'Friday' : 'Saturday/Sunday';
-        return {
-          allowed: false,
-          message:
-            `${dayLabel} is reserved for Open Play starting at 6:00 PM.\n\n` +
-            'The last bookable court block is 5:00 PM to 6:00 PM.\n' +
-            'Please select a shorter duration or an earlier time.'
-        };
+        if (!TIME_SLOTS.includes(currentTime)) {
+          return {
+            allowed: false,
+            message:
+              `That duration extends beyond the available court schedule. ` +
+              `Please choose a shorter duration.`
+          };
+        }
+
+        if (
+          isOpenPlaySlot(
+            dateStr,
+            currentTime,
+            court,
+            overrides
+          )
+        ) {
+          return {
+            allowed: false,
+            message:
+              `${getOpenPlayRestrictionMessage(
+                dateStr,
+                currentTime,
+                court,
+                overrides
+              )}\n\nPlease choose another available time or court.`
+          };
+        }
       }
 
       return {
         allowed: true,
-        endHour: bookingEndHour
+        endHour: startHour + safeDuration
       };
     }
 
-    async function updateDurationOptionsForOpenPlay(dateStr, startTimeStr) {
-      const durationSelect = document.getElementById('bookingDuration');
-      if (!durationSelect || !dateStr || !startTimeStr) return;
+    async function updateDurationOptionsForOpenPlay(
+      dateStr,
+      startTimeStr,
+      court
+    ) {
+      const durationSelect =
+        document.getElementById('bookingDuration');
 
-      const settings = await getFacilitySettingsFromFirestore();
-      const openPlay = settings?.openPlay || {};
-      const openPlayStartHour = parseInt(openPlay.startHour, 10) || 18;
+      if (
+        !durationSelect ||
+        !dateStr ||
+        !startTimeStr ||
+        !court
+      ) {
+        return;
+      }
+
       const startHour = parseInt(startTimeStr.split(':')[0], 10);
-      const dayNumber = getDayNumber(dateStr);
-
-      const restrictionEnabled =
-        (dayNumber === 5 && openPlay.friday === true) ||
-        ((dayNumber === 6 || dayNumber === 0) && openPlay.weekend === true);
+      const overrides = await getOpenPlayOverrides();
 
       Array.from(durationSelect.options).forEach(option => {
-        const duration = parseInt(option.value, 10) || 1;
-        option.disabled = restrictionEnabled && (startHour + duration > openPlayStartHour);
+        const duration =
+          Math.max(1, parseInt(option.value, 10) || 1);
+
+        let invalid = false;
+
+        for (let i = 0; i < duration; i++) {
+          const currentHour = startHour + i;
+          const currentTime =
+            `${currentHour.toString().padStart(2, '0')}:00`;
+
+          if (
+            !TIME_SLOTS.includes(currentTime) ||
+            isOpenPlaySlot(
+              dateStr,
+              currentTime,
+              court,
+              overrides
+            )
+          ) {
+            invalid = true;
+            break;
+          }
+        }
+
+        option.disabled = invalid;
       });
 
-      const selectedOption = durationSelect.options[durationSelect.selectedIndex];
+      const selectedOption =
+        durationSelect.options[durationSelect.selectedIndex];
+
       if (selectedOption?.disabled) {
-        const firstAllowed = Array.from(durationSelect.options).find(option => !option.disabled);
+        const firstAllowed =
+          Array.from(durationSelect.options)
+            .find(option => !option.disabled);
+
         if (firstAllowed) {
           durationSelect.value = firstAllowed.value;
         }
@@ -193,6 +348,7 @@
 
       updateFormTotal();
     }
+
     // ==========================================
     // WEEK NAVIGATION BUTTONS
     // ==========================================
@@ -233,6 +389,7 @@
 
         if (currentWeekOffset > 0) {
           currentWeekOffset--;
+          selectedCalendarDate = null;
 
           console.log('⬅️ Week offset:', currentWeekOffset);
           console.log(
@@ -254,6 +411,7 @@
       nextWeekBtn.addEventListener('click', async () => {
 
         currentWeekOffset++;
+        selectedCalendarDate = null;
 
         console.log('➡️ Week offset:', currentWeekOffset);
         console.log(
@@ -333,15 +491,8 @@
     }
 
 
-    function getFilteredTimeSlots() {
-      if (currentFilter === 'am') {
-        return TIME_SLOTS.filter(t => parseInt(t) < 12);
-      }
-
-      if (currentFilter === 'pm') {
-        return TIME_SLOTS.filter(t => parseInt(t) >= 12);
-      }
-
+    function getCalendarTimeSlots() {
+      // Show every configured court hour in one continuous calendar.
       return TIME_SLOTS;
     }
 
@@ -383,175 +534,192 @@
     // ==========================================
     // CALENDAR RENDERING
     // ==========================================
+    function getCourtroomSlotState({ day, time, court, db, settings, closures, overrides }) {
+      const booking = db.find(b =>
+        b.date === day.dateStr &&
+        b.court === court &&
+        b.time === time &&
+        b.status !== 'cancelled'
+      );
+
+      const scheduledClosure = closures.find(c =>
+        c.date === day.dateStr &&
+        (c.court === court || c.court === 'All')
+      );
+
+      if (day.isPast || isSlotInPast(day.dateStr, time)) {
+        return { statusClass: 'past', statusText: 'Past', clickable: false };
+      }
+
+      if (scheduledClosure) {
+        if (scheduledClosure.reason === 'tournament') {
+          return { statusClass: 'tournament', statusText: 'Event', clickable: false };
+        }
+
+        if (scheduledClosure.reason === 'maintenance') {
+          return { statusClass: 'maintenance', statusText: 'Maintenance', clickable: false };
+        }
+
+        return { statusClass: 'closed', statusText: 'Closed', clickable: false };
+      }
+
+      if (settings?.facilityStatus === 'closed') {
+        return { statusClass: 'closed', statusText: 'Closed', clickable: false };
+      }
+
+      const courtStatus = settings?.courts?.[court] || 'open';
+
+      if (courtStatus === 'maintenance') {
+        return { statusClass: 'maintenance', statusText: 'Maintenance', clickable: false };
+      }
+
+      if (courtStatus === 'tournament' || courtStatus === 'event') {
+        return { statusClass: 'tournament', statusText: 'Event', clickable: false };
+      }
+
+      if (courtStatus === 'closed') {
+        return { statusClass: 'closed', statusText: 'Closed', clickable: false };
+      }
+
+      // Honor existing reservations even if a later Open Play rule/override
+      // would otherwise cover the same slot.
+      if (booking) {
+        if (booking.status === 'pending') {
+          return { statusClass: 'pending', statusText: 'Pending', clickable: false };
+        }
+
+        return { statusClass: 'booked', statusText: 'Booked', clickable: false };
+      }
+
+      if (isOpenPlaySlot(day.dateStr, time, court, overrides)) {
+        return { statusClass: 'open-play', statusText: 'Open Play', clickable: false };
+      }
+
+      return { statusClass: 'open', statusText: 'Available', clickable: true };
+    }
+
     async function renderCalendar() {
       const grid = document.getElementById('calendarGrid');
-      if (!grid) return;
+      const dateTabs = document.getElementById('courtroomDateTabs');
+      if (!grid || !dateTabs) return;
 
       const weekDates = getWeekDates();
-      const db = await getBookings();
-      const filteredTimes = getFilteredTimeSlots();
+      const calendarTimes = getCalendarTimeSlots();
 
-      const settings = await getFacilitySettingsFromFirestore();
-
-let closures = [];
-
-try {
-  await waitForFirebase();
-
-  if (window.db && window.firebaseFunctions) {
-    const { collection, getDocs } = window.firebaseFunctions;
-
-    const closuresSnapshot = await getDocs(
-      collection(window.db, 'scheduledClosures')
-    );
-
-    closures = closuresSnapshot.docs.map(document => ({
-      id: document.id,
-      ...document.data()
-    }));
-  }
-} catch (error) {
-  console.error('Error loading scheduled closures:', error);
-
-  // Continue loading the schedule even if closures fail.
-  closures = [];
-}
-
-      let html = '<div class="calendar-cell calendar-header"></div>';
-      
-      weekDates.forEach(day => {
-        html += `<div class="calendar-cell calendar-header ${day.isToday ? 'today' : ''}">
-          <span class="day-name">${day.dayName}</span>
-          <span class="day-num">${day.dayNum}</span>
-        </div>`;
-      });
-
-      for (const time of filteredTimes) {
-        html += `<div class="calendar-cell time-label">${formatTime12(time)}</div>`;
-        
-        for (const day of weekDates) {
-          let cellClass = 'calendar-cell slot-cell';
-          if (day.isPast) cellClass += ' past';
-          
-          html += `<div class="${cellClass}">`;
-          
-          for (const court of COURTS) {
-            if (day.isPast) {
-              html += `<div class="court-status">
-                <span class="court-name">${court}</span>
-                <span class="status-text past">Past</span>
-              </div>`;
-                           } else {
-              // Find the specific booking object for this exact slot
-              const booking = db.find(b => 
-                b.date === day.dateStr && 
-                b.court === court && 
-                b.time === time && 
-                b.status !== 'cancelled'
-              );
-              
-                        // Smart Duration Calculation:
-              // If the booking exists, check its saved duration. If not saved, calculate it dynamically.
-              let duration = booking ? (booking.duration || 1) : 1;
-              
-              if (booking && !booking.duration) {
-                let nextHour = parseInt(time.split(':')[0]) + 1;
-                while (db.some(b => 
-                  b.date === day.dateStr && 
-                  b.court === court && 
-                  b.time === `${nextHour.toString().padStart(2, '0')}:00` && 
-                  b.status !== 'cancelled' && 
-                  b.bookingId === booking.bookingId
-                )) {
-                  duration++;
-                  nextHour++;
-                }
-              }
-
-             
-              const courtStatus = settings.courts[court] || 'open';
-              
-    // Check for date-specific closures
-    const scheduledClosure = closures.find(c =>
-      c.date === day.dateStr &&
-      (
-        c.court === court ||
-        c.court === 'All'
-      )
-    );
-
-              let statusClass = 'open';
-              let statusText = 'Open';
-              let clickAction = `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`;
-
-              // 0. Check if the specific time slot has already passed today
-              if (isSlotInPast(day.dateStr, time)) {
-                statusClass = 'past';
-                statusText = 'Past';
-                clickAction = '';
-              }
-
-           
-
-    // 1. Check Scheduled Date Closure (Highest Priority)
-    if (scheduledClosure) {
-      statusClass = scheduledClosure.reason === 'tournament'
-        ? 'tournament'
-        : 'maintenance';
-
-      statusText = scheduledClosure.reason === 'tournament'
-        ? 'Event'
-        : 'Maint.';
-
-      clickAction = '';
-    }
-
-    // 2. Check General Court Status
-    else if (courtStatus === 'maintenance') {
-      statusClass = 'maintenance';
-      statusText = 'Maint.';
-      clickAction = '';
-    }
-
-    else if (courtStatus === 'tournament') {
-      statusClass = 'tournament';
-      statusText = 'Event';
-      clickAction = '';
-    }
-
-    // 3. Check Open Play Schedule
-    else if (isOpenPlaySlot(day.dateStr, time, settings)) {
-      statusClass = 'open-play';
-      statusText = 'Open Play';
-      clickAction = '';
-    }
-
-    // 4. Check Bookings
-    else if (booking) {
-      if (booking.status === 'confirmed') {
-        statusClass = 'booked';
-        statusText = 'Booked';
-        clickAction = '';
-      } 
-      else if (booking.status === 'pending') {
-        statusClass = 'pending';
-        statusText = 'Pending';
-        clickAction = '';
+      if (!selectedCalendarDate || !weekDates.some(day => day.dateStr === selectedCalendarDate)) {
+        const today = weekDates.find(day => day.isToday);
+        selectedCalendarDate = (today || weekDates[0])?.dateStr || null;
       }
-    }
-              
-              html += `<div class="court-status">
-                <span class="court-name">${court}</span>
-                <span class="status-text ${statusClass}" ${clickAction}>${statusText}</span>
-              </div>`;
-            }
-          }
-          html += `</div>`;
+
+      dateTabs.innerHTML = weekDates.map(day => {
+        const isSelected = day.dateStr === selectedCalendarDate;
+        const label = day.isToday
+          ? 'Today'
+          : day.dayName.charAt(0) + day.dayName.slice(1).toLowerCase();
+
+        return `
+          <button
+            type="button"
+            class="courtroom-date-tab ${isSelected ? 'active' : ''} ${day.isToday ? 'today' : ''}"
+            onclick="selectCalendarDay('${day.dateStr}')"
+            aria-pressed="${isSelected}"
+          >
+            <span class="courtroom-date-day">${label}</span>
+            <span class="courtroom-date-number">${day.dayNum}</span>
+          </button>
+        `;
+      }).join('');
+
+      const selectedDay = weekDates.find(day => day.dateStr === selectedCalendarDate) || weekDates[0];
+
+      grid.innerHTML = '<p class="loading-text courtroom-loading">Loading schedule...</p>';
+
+      const [db, settings, overrides] = await Promise.all([
+        getBookings(),
+        getFacilitySettingsFromFirestore(),
+        getOpenPlayOverrides()
+      ]);
+
+      let closures = [];
+
+      try {
+        await waitForFirebase();
+
+        if (window.db && window.firebaseFunctions) {
+          const { collection, getDocs } = window.firebaseFunctions;
+          const closuresSnapshot = await getDocs(collection(window.db, 'scheduledClosures'));
+
+          closures = closuresSnapshot.docs.map(document => ({
+            id: document.id,
+            ...document.data()
+          }));
         }
+      } catch (error) {
+        console.error('Error loading scheduled closures:', error);
+        closures = [];
       }
-      
+
+      let html = `
+        <div class="courtroom-table-head courtroom-table-row">
+          <div class="courtroom-time-head">Time</div>
+          ${COURTS.map(court => `
+            <div class="courtroom-court-head">
+              <strong>${court}</strong>
+              <span>Indoor</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      for (const time of calendarTimes) {
+        html += `<div class="courtroom-table-row courtroom-time-row">`;
+        html += `<div class="courtroom-time-cell">${formatTime12(time).toUpperCase()}</div>`;
+
+        for (const court of COURTS) {
+          const slotState = getCourtroomSlotState({
+            day: selectedDay,
+            time,
+            court,
+            db,
+            settings,
+            closures,
+            overrides
+          });
+
+          const clickAction = slotState.clickable
+            ? `onclick="selectSlot('${selectedDay.dateStr}', '${time}', '${court}')"`
+            : '';
+
+          const disabledAttr = slotState.clickable ? '' : 'disabled';
+
+          html += `
+            <div class="courtroom-slot-cell">
+              <button
+                type="button"
+                class="courtroom-slot ${slotState.statusClass}"
+                ${clickAction}
+                ${disabledAttr}
+              >
+                ${slotState.statusText}
+              </button>
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+      }
+
+      if (!calendarTimes.length) {
+        html += `<div class="courtroom-empty-state">No schedule slots available.</div>`;
+      }
+
       grid.innerHTML = html;
     }
+
+    window.selectCalendarDay = function(dateStr) {
+      selectedCalendarDate = dateStr;
+      renderCalendar();
+    };
 
     function selectSlot(date, time, court) {
       document.getElementById('hiddenDate').value = date;
@@ -565,7 +733,7 @@ try {
 
       // Recalculate the total and restrict duration when Open Play applies.
       updateFormTotal();
-      updateDurationOptionsForOpenPlay(date, time);
+      updateDurationOptionsForOpenPlay(date, time, court);
     }
 
     // ==========================================
@@ -586,210 +754,19 @@ try {
         updateFormTotal();
       }
       
-      // AM/PM Filter Button Logic
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          currentFilter = e.target.dataset.filter;
-          renderCalendar();
-            // Also render mobile view
-      renderMobileSchedule();
-        });
-      });
-
-      
 
       // ==========================================
-    // MOBILE SCHEDULE LIST RENDERING
+    // RESPONSIVE SCHEDULE COMPATIBILITY
     // ==========================================
-
-    // ==========================================
-    // MOBILE SCHEDULE LIST RENDERING
-    // ==========================================
-
+    // The Courtroom-style schedule uses one responsive table for both
+    // desktop and mobile. Keep this function because older event handlers
+    // elsewhere in this file still call it.
     async function renderMobileSchedule() {
-      const listContainer = document.getElementById('mobileScheduleList');
-      if (!listContainer) return;
-
-      const weekDates = getWeekDates();
-
-      console.log(
-        '📱 MOBILE RENDER:',
-        weekDates.map(d => d.dateStr)
-      );
-
-      const db = await getBookings();
-      const filteredTimes = getFilteredTimeSlots();
-
-     const facilitySettings = await getFacilitySettingsFromFirestore();
-
-let scheduledClosures = [];
-
-try {
-  await waitForFirebase();
-
-  if (window.db && window.firebaseFunctions) {
-    const { collection, getDocs } = window.firebaseFunctions;
-
-    const closuresSnapshot = await getDocs(
-      collection(window.db, 'scheduledClosures')
-    );
-
-    scheduledClosures = closuresSnapshot.docs.map(document => ({
-      id: document.id,
-      ...document.data()
-    }));
-  }
-} catch (error) {
-  console.error('Error loading scheduled closures:', error);
-
-  scheduledClosures = [];
-}
-
-      let html = '';
-
-      weekDates.forEach(day => {
-        html += `<div class="mobile-day-group">
-          <div class="mobile-day-header ${day.isToday ? 'today' : ''}">
-            <span class="day-name">${day.dayName}</span>
-            <span class="day-num">${day.dayNum}</span>
-          </div>
-          <div class="mobile-day-slots">`;
-
-        filteredTimes.forEach(time => {
-          html += `<div class="mobile-time-slot">
-            <div class="mobile-time-label">${formatTime12(time)}</div>
-            <div class="mobile-court-slots">`;
-
-          COURTS.forEach(court => {
-
-            // 1. Past
-            if (isSlotInPast(day.dateStr, time)) {
-              html += `<div class="mobile-court-item">
-                <span class="mobile-court-name">${court}</span>
-                <span class="mobile-status past">Past</span>
-              </div>`;
-              return;
-            }
-
-            // 2. Scheduled closure
-           const scheduledClosure = scheduledClosures.find(c =>
-      c.date === day.dateStr &&
-      (
-        c.court === court ||
-        c.court === 'All'
-      )
-    );
-
-            if (scheduledClosure) {
-              html += `<div class="mobile-court-item">
-                <span class="mobile-court-name">${court}</span>
-                <span class="mobile-status maintenance">
-                  ${scheduledClosure.reason === 'tournament'
-      ? 'Tournament'
-      : scheduledClosure.reason === 'maintenance'
-      ? 'Maintenance'
-      : 'Closed'}
-                </span>
-              </div>`;
-              return;
-            }
-
-            // 3. Facility-wide closed
-            if (facilitySettings.facilityStatus === 'closed') {
-              html += `<div class="mobile-court-item">
-                <span class="mobile-court-name">${court}</span>
-                <span class="mobile-status maintenance">Closed</span>
-              </div>`;
-              return;
-            }
-
-            // 4. Individual court status
-            const courtStatus = facilitySettings.courts?.[court];
-
-            if (courtStatus && courtStatus !== 'open') {
-              let statusText = 'Closed';
-
-              if (courtStatus === 'maintenance') {
-                statusText = 'Maintenance';
-              } else if (courtStatus === 'event') {
-                statusText = 'Event';
-              } else if (courtStatus === 'tournament') {
-                statusText = 'Tournament';
-              }
-
-              html += `<div class="mobile-court-item">
-                <span class="mobile-court-name">${court}</span>
-                <span class="mobile-status maintenance">${statusText}</span>
-              </div>`;
-              return;
-            }
-
-            // 5. Existing booking
-            const booking = db.find(b =>
-              b.date === day.dateStr &&
-              b.court === court &&
-              b.time === time &&
-              b.status !== 'cancelled'
-            );
-
-            const isBooked = !!booking;
-
-            const hour = parseInt(time.split(':')[0]);
-
-            let statusClass = 'open';
-            let statusText = 'Open';
-            let clickAction =
-              `onclick="selectSlot('${day.dateStr}', '${time}', '${court}')"`
-
-            // 6. Open Play
-            if (isOpenPlaySlot(day.dateStr, time, facilitySettings)) {
-              statusClass = 'open-play';
-              statusText = 'Open Play';
-              clickAction = '';
-            }
-
-            // 7. Booked / Pending
-            else if (isBooked) {
-              statusClass =
-                booking.status === 'pending'
-                  ? 'pending'
-                  : 'booked';
-
-              statusText =
-                booking.status === 'pending'
-                  ? 'Pending'
-                  : 'Booked';
-
-              clickAction = '';
-            }
-
-            html += `<div class="mobile-court-item">
-              <span class="mobile-court-name">${court}</span>
-              <span class="mobile-status ${statusClass}" ${clickAction}>
-                ${statusText}
-              </span>
-            </div>`;
-          });
-
-          html += `</div></div>`;
-        });
-
-        html += `</div></div>`;
-      });
-
-      if (html === '') {
-        listContainer.innerHTML =
-          '<p style="text-align: center; color: var(--gray-500); padding: 2rem;">No available slots this week.</p>';
-      } else {
-        listContainer.innerHTML = html;
-      }
+      return;
     }
 
-
-    // Make the function available globally
     window.renderMobileSchedule = renderMobileSchedule;
+
       // Add-on Quantity Logic
       document.querySelectorAll('.qty-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -862,7 +839,8 @@ try {
           const openPlayCheck = await validateOpenPlayRestriction(
             date,
             startTimeStr,
-            duration
+            duration,
+            selectedCourt
           );
 
           if (!openPlayCheck.allowed) {
@@ -923,7 +901,8 @@ try {
           const openPlayCheck = await validateOpenPlayRestriction(
             date,
             startTimeStr,
-            duration
+            duration,
+            court
           );
 
           if (!openPlayCheck.allowed) {
@@ -1323,8 +1302,7 @@ try {
     function getFacilitySettings() {
       return JSON.parse(localStorage.getItem('hirayaFacilitySettings')) || {
         facilityStatus: 'open',
-        courts: { 'Court 1': 'open', 'Court 2': 'open' },
-        openPlay: { friday: false, weekend: false, startHour: 18 }
+        courts: { 'Court 1': 'open', 'Court 2': 'open' }
       };
     }
 
@@ -1334,11 +1312,6 @@ try {
         courts: {
           'Court 1': 'open',
           'Court 2': 'open'
-        },
-        openPlay: {
-          friday: false,
-          weekend: false,
-          startHour: 18
         }
       };
 
@@ -1361,10 +1334,6 @@ try {
             courts: {
               ...fallback.courts,
               ...(data.courts || {})
-            },
-            openPlay: {
-              ...fallback.openPlay,
-              ...(data.openPlay || {})
             }
           };
         }
@@ -1469,168 +1438,6 @@ try {
     // ADMIN DASHBOARD FUNCTIONS
     // ==========================================
 
-    async function saveOpenPlaySettings(fridayEnabled, weekendEnabled) {
-      await waitForFirebase();
-
-      if (!window.db) {
-        throw new Error('Firebase failed to load');
-      }
-
-      const {
-        collection,
-        getDocs,
-        addDoc,
-        doc,
-        updateDoc
-      } = window.firebaseFunctions;
-
-      const openPlay = {
-        friday: fridayEnabled === true,
-        weekend: weekendEnabled === true,
-        startHour: 18
-      };
-
-      // Find the existing facility settings document.
-      // This supports both the original fixed ID (settings/facility)
-      // and a fallback document created by this feature.
-      const settingsCollection = collection(window.db, 'settings');
-      const snapshot = await getDocs(settingsCollection);
-      const facilityDoc = snapshot.docs.find(document =>
-        document.id === 'facility' || document.data()?.settingsKey === 'facility'
-      );
-
-      if (facilityDoc) {
-        await updateDoc(
-          doc(window.db, 'settings', facilityDoc.id),
-          { openPlay }
-        );
-      } else {
-        // If settings/facility does not exist yet, create a settings record
-        // without requiring setDoc to be exposed by the HTML Firebase module.
-        await addDoc(settingsCollection, {
-          settingsKey: 'facility',
-          facilityStatus: 'open',
-          courts: {
-            'Court 1': 'open',
-            'Court 2': 'open'
-          },
-          openPlay
-        });
-      }
-    }
-
-    function styleOpenPlayToggle(button, enabled) {
-      button.dataset.enabled = enabled ? 'true' : 'false';
-      button.textContent = enabled ? 'ON' : 'OFF';
-      button.style.background = enabled ? '#16a34a' : '#64748b';
-      button.style.color = '#ffffff';
-      button.style.border = 'none';
-      button.style.borderRadius = '999px';
-      button.style.padding = '9px 18px';
-      button.style.minWidth = '72px';
-      button.style.fontWeight = '800';
-      button.style.cursor = 'pointer';
-      button.style.transition = '0.2s ease';
-    }
-
-    async function initOpenPlayAdminControls() {
-      const tbody = document.getElementById('bookingsTableBody');
-      if (!tbody || document.getElementById('openPlayAdminPanel')) return;
-
-      const table = tbody.closest('table');
-      const host = table?.parentElement || tbody.parentElement;
-      if (!host) return;
-
-      const panel = document.createElement('div');
-      panel.id = 'openPlayAdminPanel';
-      panel.style.cssText = `
-        margin: 0 0 22px 0;
-        padding: 20px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 14px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-      `;
-
-      panel.innerHTML = `
-        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
-          <div>
-            <h3 style="margin:0 0 5px 0;color:#4c1d95;">Open Play Settings</h3>
-            <p style="margin:0;color:#64748b;font-size:14px;">
-              When enabled, both courts are reserved for Open Play from 6:00 PM onwards.
-              The last customer booking block is 5:00 PM–6:00 PM.
-            </p>
-          </div>
-          <span style="font-size:12px;font-weight:700;background:#f3e8ff;color:#6b21a8;padding:6px 10px;border-radius:999px;">Both Courts</span>
-        </div>
-
-        <div style="display:grid;gap:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px;border:1px solid #ede9fe;border-radius:10px;">
-            <div>
-              <strong style="display:block;color:#1f2937;">Friday Open Play</strong>
-              <small style="color:#64748b;">Friday · 6:00 PM onwards</small>
-            </div>
-            <button type="button" id="fridayOpenPlayToggle">OFF</button>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px;border:1px solid #ede9fe;border-radius:10px;">
-            <div>
-              <strong style="display:block;color:#1f2937;">Saturday & Sunday Open Play</strong>
-              <small style="color:#64748b;">Saturday + Sunday · 6:00 PM onwards</small>
-            </div>
-            <button type="button" id="weekendOpenPlayToggle">OFF</button>
-          </div>
-        </div>
-
-        <div id="openPlaySaveStatus" style="margin-top:12px;font-size:13px;color:#64748b;"></div>
-      `;
-
-      if (table) {
-        host.insertBefore(panel, table);
-      } else {
-        host.insertBefore(panel, host.firstChild);
-      }
-
-      const fridayBtn = document.getElementById('fridayOpenPlayToggle');
-      const weekendBtn = document.getElementById('weekendOpenPlayToggle');
-      const statusEl = document.getElementById('openPlaySaveStatus');
-
-      const settings = await getFacilitySettingsFromFirestore();
-      styleOpenPlayToggle(fridayBtn, settings.openPlay?.friday === true);
-      styleOpenPlayToggle(weekendBtn, settings.openPlay?.weekend === true);
-
-      async function saveFromButtons(changedButton) {
-        const previousValue = changedButton.dataset.enabled === 'true';
-        const newValue = !previousValue;
-
-        styleOpenPlayToggle(changedButton, newValue);
-        fridayBtn.disabled = true;
-        weekendBtn.disabled = true;
-        statusEl.textContent = 'Saving Open Play settings...';
-
-        try {
-          await saveOpenPlaySettings(
-            fridayBtn.dataset.enabled === 'true',
-            weekendBtn.dataset.enabled === 'true'
-          );
-
-          statusEl.textContent = 'Open Play settings saved successfully.';
-          statusEl.style.color = '#15803d';
-        } catch (error) {
-          console.error('Error saving Open Play settings:', error);
-          styleOpenPlayToggle(changedButton, previousValue);
-          statusEl.textContent = 'Could not save Open Play settings. Check Firebase permissions/settings document.';
-          statusEl.style.color = '#b91c1c';
-        } finally {
-          fridayBtn.disabled = false;
-          weekendBtn.disabled = false;
-        }
-      }
-
-      fridayBtn.addEventListener('click', () => saveFromButtons(fridayBtn));
-      weekendBtn.addEventListener('click', () => saveFromButtons(weekendBtn));
-    }
-
     // Check if we're on the admin page
     if (document.getElementById('bookingsTableBody')) {
       initAdminDashboard();
@@ -1639,18 +1446,24 @@ try {
     function initAdminDashboard() {
       // Load data immediately
       loadAdminData();
-      initOpenPlayAdminControls();
       
       // Filter buttons
       const applyBtn = document.getElementById('applyFiltersBtn');
       const clearBtn = document.getElementById('clearFiltersBtn');
       
-      if (applyBtn) applyBtn.addEventListener('click', loadAdminData);
+      if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+          currentPage = 1;
+          loadAdminData();
+        });
+      }
+
       if (clearBtn) {
         clearBtn.addEventListener('click', () => {
           document.getElementById('adminDateFilter').value = '';
           document.getElementById('adminCourtFilter').value = '';
           document.getElementById('adminStatusFilter').value = '';
+          currentPage = 1;
           loadAdminData();
         });
       }
@@ -1706,8 +1519,11 @@ try {
       const courtFilter = courtFilterEl ? courtFilterEl.value : '';
       const statusFilter = statusFilterEl ? statusFilterEl.value : '';
       
-      // 3. Apply filters (Ignore cancelled bookings by default)
-      let filteredBookings = db.filter(b => b.status !== 'cancelled');
+      // 3. Apply filters. Hide cancelled bookings by default, but allow
+      // the Cancelled status filter to show them when explicitly requested.
+      let filteredBookings = statusFilter
+        ? [...db]
+        : db.filter(b => b.status !== 'cancelled');
       
       if (dateFilter) filteredBookings = filteredBookings.filter(b => b.date === dateFilter);
       if (courtFilter) filteredBookings = filteredBookings.filter(b => b.court === courtFilter);
@@ -1764,19 +1580,42 @@ try {
 
     function renderAdminTable(bookings) {
       const tbody = document.getElementById('bookingsTableBody');
+      const pagination = document.getElementById('adminPagination');
+      const paginationSummary = document.getElementById('paginationSummary');
+
       if (!tbody) return;
 
-      // Group bookings by bookingId
+      // Group hourly Firestore records into one visible reservation per booking ID.
       const grouped = {};
       bookings.forEach(b => {
-        if (!grouped[b.bookingId]) grouped[b.bookingId] = [];
-        grouped[b.bookingId].push(b);
+        const key = b.bookingId || b.id;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(b);
       });
 
-      // Convert to array of groups
       const bookingGroups = Object.values(grouped);
 
+      // Newest reservations first. Fall back to booked date/time for older records
+      // that do not have a createdAt value.
+      const getGroupSortValue = (group) => {
+        const first = group[0] || {};
+        const created = first.createdAt;
+
+        if (created?.seconds) return created.seconds * 1000;
+        if (typeof created === 'number') return created;
+        if (typeof created === 'string') {
+          const parsed = Date.parse(created);
+          if (!Number.isNaN(parsed)) return parsed;
+        }
+
+        const fallback = Date.parse(`${first.date || '1970-01-01'}T${first.time || '00:00'}:00`);
+        return Number.isNaN(fallback) ? 0 : fallback;
+      };
+
+      bookingGroups.sort((a, b) => getGroupSortValue(b) - getGroupSortValue(a));
+
       if (bookingGroups.length === 0) {
+        currentPage = 1;
         tbody.innerHTML = `
           <tr>
             <td colspan="10" class="empty-state">
@@ -1790,147 +1629,193 @@ try {
             </td>
           </tr>
         `;
+
+        if (paginationSummary) paginationSummary.textContent = 'No bookings to display';
+        if (pagination) pagination.innerHTML = '';
         return;
       }
 
-    // Sort bookings: latest BOOKED first
-    bookingGroups.sort((a, b) => {
-      const createdA = a[0].createdAt || 0;
-      const createdB = b[0].createdAt || 0;
+      const totalBookings = bookingGroups.length;
+      const totalPages = Math.max(1, Math.ceil(totalBookings / itemsPerPage));
+      currentPage = Math.min(Math.max(1, currentPage), totalPages);
 
-      return createdB - createdA;
-    });
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, totalBookings);
+      const pageGroups = bookingGroups.slice(startIndex, endIndex);
 
-      tbody.innerHTML = bookingGroups.map(group => {
+      if (paginationSummary) {
+        paginationSummary.textContent =
+          `Showing ${startIndex + 1}-${endIndex} of ${totalBookings} bookings`;
+      }
 
-        // Sort the hours in this group chronologically
+      tbody.innerHTML = pageGroups.map(group => {
         group.sort((a, b) => a.time.localeCompare(b.time));
 
         const first = group[0];
         const last = group[group.length - 1];
         const duration = group.length;
-
         const total = calculateBookingTotal(first);
 
-        // Calculate End Time
-        const lastHour = parseInt(last.time.split(':')[0]);
+        const lastHour = parseInt(last.time.split(':')[0], 10);
         const endHour = lastHour + 1;
         const endTimeStr = `${endHour.toString().padStart(2, '0')}:00`;
 
-        // Format Add-ons text
         const addonsText = [];
-
-        if (first.addons?.paddle > 0) {
-          addonsText.push(`${first.addons.paddle}x Paddle`);
-        }
-
-        if (first.addons?.ball > 0) {
-          addonsText.push(`${first.addons.ball}x Ball`);
-        }
+        if (first.addons?.paddle > 0) addonsText.push(`${first.addons.paddle}x Paddle`);
+        if (first.addons?.ball > 0) addonsText.push(`${first.addons.ball}x Ball`);
 
         return `
           <!-- DESKTOP TABLE ROW -->
           <tr class="desktop-booking-row">
-            <td>
-              <strong>${first.bookingId}</strong>
-            </td>
-
+            <td><strong>${first.bookingId || first.id}</strong></td>
             <td>${first.date}</td>
-
             <td>
               ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
               <br>
               <small style="color:var(--gray-500)">(${duration}h)</small>
             </td>
-
             <td>${first.court}</td>
-
             <td>
               <div>${first.name}</div>
-              <small style="color: var(--gray-500);">
-                ${first.mobile}
-              </small>
+              <small style="color: var(--gray-500);">${first.mobile}</small>
             </td>
-
             <td>
               <span style="text-transform: capitalize; font-weight: 600;">
                 ${first.payment === 'gcash' ? '📱 GCash' : '💵 Venue'}
               </span>
             </td>
-
-            <td>
-              ${addonsText.length > 0 ? addonsText.join(', ') : '-'}
-            </td>
-
-            <td>
-              <strong>₱${total}</strong>
-            </td>
-
+            <td>${addonsText.length > 0 ? addonsText.join(', ') : '-'}</td>
+            <td><strong>₱${total}</strong></td>
             <td>
               <span class="status-badge ${first.status || 'confirmed'}">
                 ${first.status || 'confirmed'}
               </span>
             </td>
-
-    <td>
-      <button
-        class="action-btn view"
-        style="background:#e0e7ff; color:#3730a3;"
-        onclick="openEditModal('${first.bookingId}')">
-        Edit
-      </button>
-
-      <button
-        class="action-btn view"
-        onclick="viewBookingDetails('${first.bookingId}')">
-        View
-      </button>
-    </td>
+            <td>
+              <button
+                class="action-btn view"
+                style="background:#e0e7ff; color:#3730a3;"
+                onclick="openEditModal('${first.bookingId}')">
+                Edit
+              </button>
+              <button
+                class="action-btn view"
+                onclick="viewBookingDetails('${first.bookingId}')">
+                View
+              </button>
+            </td>
           </tr>
 
-
-    <!-- MOBILE BOOKING CARD -->
-    <tr
-      class="mobile-booking-card"
-      onclick="viewBookingDetails('${first.bookingId}')"
-    >
-      <td colspan="10">
-
-        <div class="mobile-booking-inner">
-
-          <div class="mobile-booking-main">
-
-            <div class="mobile-booking-top">
-              <div class="mobile-booking-id">
-                ${first.bookingId}
+          <!-- MOBILE BOOKING CARD -->
+          <tr
+            class="mobile-booking-card"
+            onclick="viewBookingDetails('${first.bookingId}')"
+          >
+            <td colspan="10">
+              <div class="mobile-booking-inner">
+                <div class="mobile-booking-main">
+                  <div class="mobile-booking-top">
+                    <div class="mobile-booking-id">${first.bookingId || first.id}</div>
+                    <span class="mobile-status-badge ${first.status || 'confirmed'}">
+                      ${(first.status || 'confirmed').toUpperCase()}
+                    </span>
+                  </div>
+                  <div class="mobile-booking-name">${first.name}</div>
+                  <div class="mobile-booking-time">
+                    🕐 ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
+                  </div>
+                </div>
+                <div class="mobile-booking-arrow">›</div>
               </div>
-
-              <span class="mobile-status-badge ${first.status || 'confirmed'}">
-                ${(first.status || 'confirmed').toUpperCase()}
-              </span>
-            </div>
-
-            <div class="mobile-booking-name">
-              ${first.name}
-            </div>
-
-            <div class="mobile-booking-time">
-              🕐 ${formatTime12(first.time)} - ${formatTime12(endTimeStr)}
-            </div>
-
-          </div>
-
-          <div class="mobile-booking-arrow">
-            ›
-          </div>
-
-        </div>
-
-      </td>
-    </tr>
+            </td>
+          </tr>
         `;
       }).join('');
+
+      renderAdminPagination(totalPages);
     }
+
+    function getAdminPaginationItems(totalPages) {
+      if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+      }
+
+      const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+      const validPages = [...pages]
+        .filter(page => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b);
+
+      const items = [];
+      validPages.forEach((page, index) => {
+        if (index > 0 && page - validPages[index - 1] > 1) items.push('ellipsis');
+        items.push(page);
+      });
+
+      return items;
+    }
+
+    function renderAdminPagination(totalPages) {
+      const pagination = document.getElementById('adminPagination');
+      if (!pagination) return;
+
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+
+      const pageItems = getAdminPaginationItems(totalPages);
+
+      pagination.innerHTML = `
+        <button
+          type="button"
+          class="pagination-btn pagination-nav"
+          ${currentPage === 1 ? 'disabled' : ''}
+          onclick="goToAdminPage(${currentPage - 1})"
+          aria-label="Previous page">
+          ← <span>Previous</span>
+        </button>
+
+        <div class="pagination-pages">
+          ${pageItems.map(item => {
+            if (item === 'ellipsis') {
+              return '<span class="pagination-ellipsis" aria-hidden="true">…</span>';
+            }
+
+            return `
+              <button
+                type="button"
+                class="pagination-btn pagination-number ${item === currentPage ? 'active' : ''}"
+                onclick="goToAdminPage(${item})"
+                ${item === currentPage ? 'aria-current="page"' : ''}>
+                ${item}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <button
+          type="button"
+          class="pagination-btn pagination-nav"
+          ${currentPage === totalPages ? 'disabled' : ''}
+          onclick="goToAdminPage(${currentPage + 1})"
+          aria-label="Next page">
+          <span>Next</span> →
+        </button>
+      `;
+    }
+
+    window.goToAdminPage = function(page) {
+      const targetPage = parseInt(page, 10);
+      if (!Number.isFinite(targetPage) || targetPage < 1 || targetPage === currentPage) return;
+
+      currentPage = targetPage;
+      loadAdminData();
+
+      const tableCard = document.querySelector('.table-card');
+      if (tableCard) {
+        tableCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
 
     function showToast(message, type = 'success') {
         const container = document.getElementById('toastContainer');
@@ -2269,7 +2154,7 @@ try {
       // Populate Time Dropdown
       const timeSelect = document.getElementById('editTime');
       timeSelect.innerHTML = '';
-      const times = ["06:00", "07:00", "08:00", "09:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+      const times = TIME_SLOTS;
       times.forEach(t => {
         const option = document.createElement('option');
         option.value = t;
@@ -2312,6 +2197,20 @@ try {
       }
 
       try {
+        if (newStatus !== 'cancelled') {
+          const openPlayCheck = await validateOpenPlayRestriction(
+            newDate,
+            newTime,
+            newDuration,
+            newCourt
+          );
+
+          if (!openPlayCheck.allowed) {
+            alert(openPlayCheck.message);
+            return;
+          }
+        }
+
         // ==========================================
         // GET BOOKINGS FROM FIREBASE
         // ==========================================
@@ -2721,23 +2620,6 @@ try {
       return RATE_AM;
     }
 
-    // Function to update rate display based on filter
-    function updateRateDisplay() {
-      const amDisplay = document.getElementById('amRateDisplay');
-      const pmDisplay = document.getElementById('pmRateDisplay');
-      const activeFilter = document.querySelector('.filter-btn.active');
-      
-      if (!amDisplay || !pmDisplay) return;
-      
-      if (activeFilter && activeFilter.dataset.filter === 'pm') {
-        amDisplay.classList.remove('active');
-        pmDisplay.classList.add('active');
-      } else {
-        amDisplay.classList.add('active');
-        pmDisplay.classList.remove('active');
-      }
-    }
-
     // Update the booking total calculation
     function updateBookingTotal() {
       const duration = parseInt(document.getElementById('bookingDuration')?.value || 1);
@@ -2768,16 +2650,6 @@ try {
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
-      // Add event listeners to filter buttons
-      const filterButtons = document.querySelectorAll('.filter-btn');
-      filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          setTimeout(() => {
-            updateRateDisplay();
-          }, 100);
-        });
-      });
-      
       // Update total when duration changes
       const durationSelect = document.getElementById('bookingDuration');
       if (durationSelect) {

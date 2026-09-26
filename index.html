@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hiraya Pickleball - Book Your Court</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260926-openplay-2">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="favicon.png">
 </head>
@@ -179,70 +179,63 @@
     </div>
   </section>
 
-    <!-- Weekly Schedule Grid -->
+    <!-- Weekly Schedule / Court Availability -->
   <section id="schedule" class="schedule-section">
     <div class="container">
-      
-      <!-- NEW CARD WRAPPER -->
-      <div class="schedule-card">
-              <div class="section-header schedule-header-flex">
-        <h2>Weekly Schedule</h2>
-        <div class="rates-badge">
-  <div class="rate-display active" id="amRateDisplay">
-    <span>☀️ <strong>Day Rate:</strong> 200/hr</span>
-  </div>
-  <div class="rate-display" id="pmRateDisplay">
-    <span>🌙 <strong>Night Rate:</strong> ₱300/hr</span>
-  </div>
-  <div class="rate-divider-vertical"></div>
-  <div class="rate-note">
-    <span>🎾 Open Play: No reservations needed</span>
-  </div>
-</div>
+      <div class="schedule-card courtroom-calendar-card">
 
-        <div class="schedule-filters">
-          <button class="filter-btn active" data-filter="am">AM</button>
-          <button class="filter-btn" data-filter="pm">PM</button>
+        <div class="section-header schedule-header-flex courtroom-schedule-heading">
+          <div>
+            <p class="schedule-eyebrow">THE DOCKET</p>
+            <h2>Court Availability</h2>
+            <p class="schedule-subtitle">Choose a day, then tap any available court slot to book it.</p>
+          </div>
+
+          <div class="rates-badge">
+            <div class="rate-display active" id="amRateDisplay">
+              <span>☀️ <strong>Day Rate:</strong> ₱200/hr</span>
+            </div>
+            <div class="rate-display active" id="pmRateDisplay">
+              <span>🌙 <strong>Night Rate:</strong> ₱300/hr</span>
+            </div>
+            <div class="rate-divider-vertical"></div>
+            <div class="rate-note">
+              <span>🎾 Open Play: No reservations needed</span>
+            </div>
+          </div>
         </div>
 
-        
-        
-        <div class="calendar-wrapper">
+        <div class="courtroom-calendar-toolbar">
+          <div class="calendar-week-navigation" id="calendarWeekNavigation">
+            <button type="button" class="week-nav-btn" id="prevWeekBtn" aria-label="Previous week">
+              <span class="week-nav-long">← Previous Week</span>
+              <span class="week-nav-short">←</span>
+            </button>
 
-  <!-- WEEK NAVIGATION -->
-  <div class="calendar-week-navigation" id="calendarWeekNavigation">
-    <button type="button" class="week-nav-btn" id="prevWeekBtn">
-      ← Previous Week
-    </button>
+            <div class="week-current-label" id="weekCurrentLabel">This Week</div>
 
-    <div class="week-current-label" id="weekCurrentLabel">
-      This Week
-    </div>
-
-    <button type="button" class="week-nav-btn" id="nextWeekBtn">
-      Next Week →
-    </button>
-  </div>
-
-  <div class="calendar-grid" id="calendarGrid">
-    <!-- JS will populate this -->
-    <p class="loading-text">Loading schedule...</p>
-  </div>
-  
-  <!-- Mobile List View -->
-  <div class="mobile-schedule-list" id="mobileScheduleList">
-   
-  </div>
-
-</div>
-
-    </div>
-  </section>
-        <!-- Mobile List View (Hidden on Desktop) -->
-        <div class="mobile-schedule-list" id="mobileScheduleList">
-        
+            <button type="button" class="week-nav-btn" id="nextWeekBtn" aria-label="Next week">
+              <span class="week-nav-long">Next Week →</span>
+              <span class="week-nav-short">→</span>
+            </button>
+          </div>
         </div>
-      </div>
+
+        <div class="calendar-wrapper courtroom-calendar-wrapper">
+          <div class="courtroom-date-tabs" id="courtroomDateTabs" aria-label="Select schedule date"></div>
+
+          <div class="courtroom-schedule-table" id="calendarGrid">
+            <p class="loading-text">Loading schedule...</p>
+          </div>
+        </div>
+
+        <div class="courtroom-calendar-legend" aria-label="Schedule status legend">
+          <span><i class="legend-swatch available"></i> Available — tap to book</span>
+          <span><i class="legend-swatch booked"></i> Booked</span>
+          <span><i class="legend-swatch pending"></i> Pending</span>
+          <span><i class="legend-swatch open-play"></i> Open Play — walk in</span>
+        </div>
+
       </div>
     </div>
   </section>
@@ -635,23 +628,6 @@ window.firebaseFunctions = {
 };
 </script>
 
-<script src="app.js?v=20260911-1" defer></script>
-
-  <!-- Floating Side Navigation -->
-<div id="floatingNav" class="floating-nav hidden">
-  <a href="#courts" class="nav-dot" title="Courts">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-  </a>
-  <a href="#booking" class="nav-dot" title="Book Now">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-  </a>
-  <a href="#contact" class="nav-dot" title="Contact">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-  </a>
-  <button id="backToTopBtn" class="nav-dot back-to-top" title="Back to Top">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-  </button>
-</div>
-
+<script src="app.js?v=20260926-openplay-2" defer></script>
 </body>
 </html>
