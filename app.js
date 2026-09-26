@@ -665,7 +665,7 @@
           ${COURTS.map(court => `
             <div class="courtroom-court-head">
               <strong>${court}</strong>
-              <span>Indoor</span>
+            
             </div>
           `).join('')}
         </div>
